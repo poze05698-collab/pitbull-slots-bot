@@ -8,17 +8,20 @@ conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
 
 # ==========================================
-# TABELA DE USUÁRIOS
+# USUÁRIOS
 # ==========================================
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS usuarios (
+CREATE TABLE IF NOT EXISTS usuarios(
 
     id INTEGER PRIMARY KEY,
-    nome TEXT,
+
+    nome TEXT NOT NULL,
+
     username TEXT,
 
     saldo REAL DEFAULT 0,
+
     saldo_pendente REAL DEFAULT 0,
 
     pix TEXT DEFAULT "",
@@ -33,11 +36,11 @@ CREATE TABLE IF NOT EXISTS usuarios (
 """)
 
 # ==========================================
-# TABELA DE INDICAÇÕES
+# INDICAÇÕES
 # ==========================================
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS indicacoes (
+CREATE TABLE IF NOT EXISTS indicacoes(
 
     id INTEGER PRIMARY KEY AUTOINCREMENT,
 
@@ -49,17 +52,21 @@ CREATE TABLE IF NOT EXISTS indicacoes (
 
     status TEXT,
 
-    data TEXT
+    admin_id INTEGER,
+
+    data TEXT,
+
+    data_aprovacao TEXT
 
 )
 """)
 
 # ==========================================
-# TABELA DE SAQUES
+# SAQUES
 # ==========================================
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS saques (
+CREATE TABLE IF NOT EXISTS saques(
 
     id INTEGER PRIMARY KEY AUTOINCREMENT,
 
@@ -71,17 +78,21 @@ CREATE TABLE IF NOT EXISTS saques (
 
     status TEXT,
 
-    data TEXT
+    admin_id INTEGER,
+
+    data TEXT,
+
+    data_aprovacao TEXT
 
 )
 """)
 
 # ==========================================
-# TABELA DE TICKETS
+# TICKETS
 # ==========================================
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS tickets (
+CREATE TABLE IF NOT EXISTS tickets(
 
     id INTEGER PRIMARY KEY AUTOINCREMENT,
 
@@ -93,17 +104,21 @@ CREATE TABLE IF NOT EXISTS tickets (
 
     status TEXT,
 
-    data TEXT
+    admin_id INTEGER,
+
+    data TEXT,
+
+    data_resposta TEXT
 
 )
 """)
 
 # ==========================================
-# TABELA DE HISTÓRICO
+# HISTÓRICO
 # ==========================================
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS historico (
+CREATE TABLE IF NOT EXISTS historico(
 
     id INTEGER PRIMARY KEY AUTOINCREMENT,
 
