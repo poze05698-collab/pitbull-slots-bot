@@ -135,4 +135,24 @@ CREATE TABLE IF NOT EXISTS historico(
 )
 """)
 
+# ==========================================
+# FRAUDES
+# ==========================================
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS fraudes(
+
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    usuario_id INTEGER,
+
+    indicador_id INTEGER,
+
+    motivo TEXT,
+
+    data TEXT
+
+)
+""")
+
 conn.commit()
