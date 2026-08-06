@@ -155,4 +155,50 @@ CREATE TABLE IF NOT EXISTS fraudes(
 )
 """)
 
+# ==========================================
+# CONFIGURAÇÕES
+# ==========================================
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS configuracoes(
+
+    chave TEXT PRIMARY KEY,
+
+    valor TEXT
+
+)
+""")
+
+conn.commit()
+
+# ==========================================
+# CONFIGURAÇÕES PADRÃO
+# ==========================================
+
+configuracoes_padrao = {
+
+    "valor_indicacao": "1.00",
+
+    "valor_minimo_saque": "20",
+
+    "grupo_obrigatorio": "1",
+
+    "tickets_ativos": "1"
+
+}
+
+for chave, valor in configuracoes_padrao.items():
+
+    cursor.execute(
+
+        """
+        INSERT OR IGNORE INTO configuracoes
+        (chave, valor)
+        VALUES (?, ?)
+        """,
+
+        (chave, valor)
+
+    )
+
 conn.commit()
