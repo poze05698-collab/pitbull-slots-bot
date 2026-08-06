@@ -24,16 +24,17 @@ CREATE TABLE IF NOT EXISTS usuarios(
 
     saldo_pendente REAL DEFAULT 0,
 
-    pix TEXT DEFAULT "",
+    saque_pendente REAL DEFAULT 0,
 
-    indicados INTEGER DEFAULT 0,
+    pix TEXT DEFAULT "",
 
     banido INTEGER DEFAULT 0,
 
-    data_cadastro TEXT
+    data_cadastro TEXT,
+
+    ultimo_acesso TEXT
 
 )
-""")
 
 # ==========================================
 # INDICAÇÕES
