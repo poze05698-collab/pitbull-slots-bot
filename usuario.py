@@ -170,25 +170,24 @@ def perfil_usuario(user_id):
 
 def registrar(bot):
 
+    # ==========================================
+    # PERFIL
+    # ==========================================
+
     @bot.message_handler(func=lambda m: m.text == "👤 Perfil")
     def perfil(message):
 
         if usuario_banido(message.from_user.id):
 
             bot.send_message(
-
                 message.chat.id,
-
                 "❌ Você está bloqueado."
-
             )
 
             return
 
         dados = perfil_usuario(
-
             message.from_user.id
-
         )
 
         texto = f"""
@@ -228,18 +227,14 @@ def registrar(bot):
 """
 
         bot.send_message(
-
             message.chat.id,
-
             texto,
-
             parse_mode="HTML"
-
         )
 
-# ==========================================
-# SALDO
-# ==========================================
+    # ==========================================
+    # SALDO
+    # ==========================================
 
     @bot.message_handler(func=lambda m: m.text == "💰 Saldo")
     def saldo(message):
@@ -288,38 +283,26 @@ def registrar(bot):
         )
 
 
-# ==========================================
-# HISTÓRICO
-# ==========================================
+    # ==========================================
+    # HISTÓRICO
+    # ==========================================
 
     @bot.message_handler(func=lambda m: m.text == "📜 Histórico")
     def historico(message):
 
         cursor.execute(
-
             """
             SELECT
-
-            tipo,
-
-            descricao,
-
-            valor,
-
-            data
-
+                tipo,
+                descricao,
+                valor,
+                data
             FROM historico
-
             WHERE usuario_id=?
-
             ORDER BY id DESC
-
             LIMIT 15
-
             """,
-
             (message.from_user.id,)
-
         )
 
         registros = cursor.fetchall()
@@ -327,11 +310,8 @@ def registrar(bot):
         if not registros:
 
             bot.send_message(
-
                 message.chat.id,
-
                 "📭 Você ainda não possui histórico."
-
             )
 
             return
@@ -348,19 +328,14 @@ def registrar(bot):
             )
 
         bot.send_message(
-
             message.chat.id,
-
             texto,
-
             parse_mode="HTML"
-
         )
 
-
-# ==========================================
-# REGRAS
-# ==========================================
+    # ==========================================
+    # REGRAS
+    # ==========================================
 
     @bot.message_handler(func=lambda m: m.text == "📖 Regras")
     def regras(message):
@@ -396,9 +371,9 @@ Fraudes resultam em banimento.
         )
 
 
-# ==========================================
-# INFORMAÇÕES
-# ==========================================
+    # ==========================================
+    # INFORMAÇÕES
+    # ==========================================
 
     @bot.message_handler(func=lambda m: m.text == "ℹ️ Informações")
     def informacoes(message):
@@ -436,12 +411,15 @@ Nossa equipe responderá o mais rápido possível.
                 message.chat.id,
                 "❌ Você está bloqueado."
             )
+
             return
 
         link = gerar_link(message.from_user.id)
 
         bot.send_message(
+
             message.chat.id,
+
             f"""
 🔗 <b>SEU LINK DE INDICAÇÃO</b>
 
@@ -452,36 +430,45 @@ Convide seus amigos usando o link abaixo:
 📌 O seu amigo deve:
 
 1️⃣ Abrir o bot pelo seu link.
+
 2️⃣ Clicar em /start.
+
 3️⃣ Entrar no grupo.
+
 4️⃣ Aguardar a aprovação do administrador.
 
 💰 Após a aprovação, você receberá sua recompensa.
 """,
+
             parse_mode="HTML"
+
         )
 
-    # ==========================================
+        # ==========================================
     # MINHAS INDICAÇÕES
     # ==========================================
 
     @bot.message_handler(func=lambda m: m.text == "👥 Minhas Indicações")
     def minhas_indicacoes(message):
-        
-        lista = indicacoes_usuario(
-            message.from_user.id
-        )
+
+        if usuario_banido(message.from_user.id):
+
+            bot.send_message(
+                message.chat.id,
+                "❌ Você está bloqueado."
+            )
+
+            return
+
+        lista = indicacoes_usuario(message.from_user.id)
 
         if not lista:
 
             bot.send_message(
-
                 message.chat.id,
-
                 """
 👥 Você ainda não possui indicações.
 """
-
             )
 
             return
@@ -518,31 +505,22 @@ Convide seus amigos usando o link abaixo:
 """
 
         bot.send_message(
-
             message.chat.id,
-
             texto,
-
             parse_mode="HTML"
-
         )
 
-
-# ==========================================
-# MENU
-# ==========================================
+    # ==========================================
+    # MENU
+    # ==========================================
 
     @bot.message_handler(commands=["menu"])
     def menu(message):
 
         bot.send_message(
-
             message.chat.id,
-
             """
 🏠 Menu Principal
 """,
-
             reply_markup=menu_principal()
-
         )
