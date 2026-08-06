@@ -640,7 +640,7 @@ Envie um dos comandos abaixo:
             )
             return
 
-        sucesso = banir_usuario(usuario_id)
+                sucesso = banir_usuario(usuario_id)
 
         if sucesso:
 
@@ -654,7 +654,7 @@ Envie um dos comandos abaixo:
                     usuario_id,
                     "🚫 Você foi banido do bot."
                 )
-            except:
+            except Exception:
                 pass
 
         else:
