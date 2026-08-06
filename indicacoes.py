@@ -26,6 +26,8 @@ from antifraude import validar_indicacao
 
 def gerar_link(user_id):
 
+    return f"https://t.me/{BOT_USERNAME}?start=ref_{user_id}"
+
     """
     Compatibilidade com a versão atual.
 
