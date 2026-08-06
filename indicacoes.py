@@ -1,233 +1,338 @@
-from telebot import types
-
 from database import conn, cursor
 
 from config import (
     BOT_USERNAME,
     VALOR_INDICACAO,
-    STATUS_PENDENTE
+    STATUS_PENDENTE,
+    STATUS_APROVADO,
+    STATUS_REJEITADO
 )
 
 from utils import (
+    data_atual,
     dinheiro,
-    registrar_historico,
     adicionar_saldo_pendente,
-    data_atual
+    adicionar_saldo,
+    remover_saldo_pendente,
+    registrar_historico
 )
 
 from antifraude import validar_indicacao
 
 
 # ==========================================
-# REGISTRAR
+# GERAR LINK
 # ==========================================
 
-def registrar(bot):
+def gerar_link(user_id):
 
-    # ==========================================
-    # MEU LINK
-    # ==========================================
+    return f"https://t.me/{BOT_USERNAME}?start=ref_{user_id}"
 
-    @bot.message_handler(func=lambda m: m.text == "🔗 Meu Link")
-    def meu_link(message):
 
-        user_id = message.from_user.id
+# ==========================================
+# REGISTRAR INDICAÇÃO
+# ==========================================
 
-        link = f"https://t.me/{BOT_USERNAME}?start=ref_{user_id}"
+def registrar_indicacao(indicador_id, indicado_id):
 
-        cursor.execute(
-            """
-            SELECT COUNT(*)
+    valido, motivo = validar_indicacao(
+        indicador_id,
+        indicado_id
+    )
 
-            FROM indicacoes
+    if not valido:
+        return False, motivo
 
-            WHERE indicador_id=?
-
-            AND status='APROVADO'
-            """,
-            (user_id,)
-        )
-
-        aprovadas = cursor.fetchone()[0]
-
-        cursor.execute(
-            """
-            SELECT COUNT(*)
-
-            FROM indicacoes
-
-            WHERE indicador_id=?
-
-            AND status='PENDENTE'
-            """,
-            (user_id,)
-        )
-
-        pendentes = cursor.fetchone()[0]
-
-        bot.send_message(
-
-            message.chat.id,
-
-            f"""
-🔗 <b>SEU LINK</b>
-
-{link}
-
-━━━━━━━━━━━━━━
-
-✅ Aprovadas:
-
-{aprovadas}
-
-⏳ Pendentes:
-
-{pendentes}
-
-💰 Total recebido:
-
-{dinheiro(aprovadas * VALOR_INDICACAO)}
-
-Compartilhe este link com seus amigos.
-""",
-
-            parse_mode="HTML"
-
-        )
-
-    # ==========================================
-    # REGISTRAR INDICAÇÃO
-    # ==========================================
-
-    def registrar_indicacao(indicador_id, indicado_id):
-
-        valido, motivo = validar_indicacao(
+    cursor.execute(
+        """
+        INSERT INTO indicacoes
+        (
             indicador_id,
-            indicado_id
+            indicado_id,
+            valor,
+            status,
+            grupo_confirmado,
+            admin_id,
+            data,
+            data_aprovacao
         )
-
-        if not valido:
-            return False, motivo
-
-        cursor.execute(
-            """
-            INSERT INTO indicacoes
-            (
-                indicador_id,
-                indicado_id,
-                valor,
-                status,
-                grupo_confirmado,
-                admin_id,
-                data,
-                data_aprovacao
-            )
-
-            VALUES
-            (?, ?, ?, ?, 0, NULL, ?, NULL)
-            """,
-            (
-                indicador_id,
-                indicado_id,
-                VALOR_INDICACAO,
-                STATUS_PENDENTE,
-                data_atual()
-            )
-        )
-
-        conn.commit()
-
-        adicionar_saldo_pendente(
+        VALUES
+        (?, ?, ?, ?, 0, NULL, ?, NULL)
+        """,
+        (
             indicador_id,
-            VALOR_INDICACAO
+            indicado_id,
+            VALOR_INDICACAO,
+            STATUS_PENDENTE,
+            data_atual()
         )
+    )
 
-        registrar_historico(
+    conn.commit()
+
+    adicionar_saldo_pendente(
+        indicador_id,
+        VALOR_INDICACAO
+    )
+
+    registrar_historico(
+        indicador_id,
+        "INDICACAO",
+        "Nova indicação registrada",
+        VALOR_INDICACAO
+    )
+
+    return True, "Indicação registrada."
+
+# ==========================================
+# CONFIRMAR ENTRADA NO GRUPO
+# ==========================================
+
+def confirmar_entrada_grupo(indicado_id):
+
+    cursor.execute(
+        """
+        SELECT
+            id,
             indicador_id,
-            "INDICACAO",
-            "Nova indicação pendente",
-            VALOR_INDICACAO
+            valor,
+            grupo_confirmado
+        FROM indicacoes
+        WHERE indicado_id=?
+        AND status=?
+        """,
+        (
+            indicado_id,
+            STATUS_PENDENTE
         )
+    )
 
-        return True, "Indicação registrada."
+    indicacao = cursor.fetchone()
 
+    if indicacao is None:
+        return False
+
+    indicacao_id, indicador_id, valor, confirmado = indicacao
+
+    if confirmado == 1:
+        return False
+
+    cursor.execute(
+        """
+        UPDATE indicacoes
+
+        SET grupo_confirmado=1
+
+        WHERE id=?
+        """,
+        (indicacao_id,)
+    )
+
+    conn.commit()
+
+    adicionar_saldo_pendente(
+
+        indicador_id,
+
+        valor
+
+    )
+
+    registrar_historico(
+
+        indicador_id,
+
+        "INDICACAO",
+
+        "Usuário entrou no grupo",
+
+        valor
+
+    )
+
+    return True
+
+# ==========================================
+# LISTAR PENDENTES
+# ==========================================
+
+def listar_indicacoes_pendentes():
+
+    cursor.execute(
+        """
+        SELECT *
+
+        FROM indicacoes
+
+        WHERE status=?
+
+        ORDER BY id
+        """,
+        (STATUS_PENDENTE,)
+    )
+
+    return cursor.fetchall()
+
+
+# ==========================================
+# INDICAÇÕES DO USUÁRIO
+# ==========================================
+
+def indicacoes_usuario(user_id):
+
+    cursor.execute(
+        """
+        SELECT
+
+        indicado_id,
+
+        valor,
+
+        status,
+
+        grupo_confirmado,
+
+        data
+
+        FROM indicacoes
+
+        WHERE indicador_id=?
+
+        ORDER BY id DESC
+        """,
+        (user_id,)
+    )
+
+    return cursor.fetchall()
 
     # ==========================================
-    # CONFIRMAR ENTRADA NO GRUPO
-    # ==========================================
+# APROVAR INDICAÇÃO
+# ==========================================
 
-    def confirmar_grupo(indicado_id):
+def aprovar_indicacao(indicacao_id, admin_id):
 
-        cursor.execute(
-            """
-            UPDATE indicacoes
+    cursor.execute(
+        """
+        SELECT
+            indicador_id,
+            valor,
+            status,
+            grupo_confirmado
+        FROM indicacoes
+        WHERE id=?
+        """,
+        (indicacao_id,)
+    )
 
-            SET grupo_confirmado=1
+    indicacao = cursor.fetchone()
 
-            WHERE indicado_id=?
+    if indicacao is None:
+        return False, "Indicação não encontrada."
 
-            AND status=?
+    indicador_id, valor, status, grupo_confirmado = indicacao
 
-            """,
+    if status != STATUS_PENDENTE:
+        return False, "Esta indicação já foi processada."
 
-            (
-                indicado_id,
-                STATUS_PENDENTE
-            )
+    if grupo_confirmado != 1:
+        return False, "O usuário ainda não foi confirmado no grupo."
 
+    cursor.execute(
+        """
+        UPDATE indicacoes
+        SET
+            status=?,
+            admin_id=?,
+            data_aprovacao=?
+        WHERE id=?
+        """,
+        (
+            STATUS_APROVADO,
+            admin_id,
+            data_atual(),
+            indicacao_id
         )
+    )
 
-        conn.commit()
+    conn.commit()
+
+    remover_saldo_pendente(
+        indicador_id,
+        valor
+    )
+
+    adicionar_saldo(
+        indicador_id,
+        valor
+    )
+
+    registrar_historico(
+        indicador_id,
+        "INDICACAO",
+        "Indicação aprovada",
+        valor
+    )
+
+    return True, indicador_id
 
 
-    # ==========================================
-    # BUSCAR INDICAÇÕES PENDENTES
-    # ==========================================
+# ==========================================
+# REJEITAR INDICAÇÃO
+# ==========================================
 
-    def listar_pendentes():
+def rejeitar_indicacao(indicacao_id, admin_id, motivo):
 
-        cursor.execute(
-            """
-            SELECT
-                id,
-                indicador_id,
-                indicado_id,
-                valor,
-                data
+    cursor.execute(
+        """
+        SELECT
+            indicador_id,
+            valor,
+            status
+        FROM indicacoes
+        WHERE id=?
+        """,
+        (indicacao_id,)
+    )
 
-            FROM indicacoes
+    indicacao = cursor.fetchone()
 
-            WHERE status=?
+    if indicacao is None:
+        return False, "Indicação não encontrada."
 
-            ORDER BY id
-            """,
-            (STATUS_PENDENTE,)
+    indicador_id, valor, status = indicacao
+
+    if status != STATUS_PENDENTE:
+        return False, "Esta indicação já foi processada."
+
+    cursor.execute(
+        """
+        UPDATE indicacoes
+        SET
+            status=?,
+            admin_id=?,
+            data_aprovacao=?
+        WHERE id=?
+        """,
+        (
+            STATUS_REJEITADO,
+            admin_id,
+            data_atual(),
+            indicacao_id
         )
+    )
 
-        return cursor.fetchall()
+    conn.commit()
 
+    remover_saldo_pendente(
+        indicador_id,
+        valor
+    )
 
-    # ==========================================
-    # BUSCAR INDICAÇÕES DO USUÁRIO
-    # ==========================================
+    registrar_historico(
+        indicador_id,
+        "INDICACAO",
+        f"Indicação rejeitada: {motivo}",
+        valor
+    )
 
-    def minhas_indicacoes(user_id):
-
-        cursor.execute(
-            """
-            SELECT
-                indicado_id,
-                valor,
-                status,
-                data
-
-            FROM indicacoes
-
-            WHERE indicador_id=?
-
-            ORDER BY id DESC
-            """,
-            (user_id,)
-        )
-
-        return cursor.fetchall()
+    return True, indicador_id
