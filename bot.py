@@ -13,6 +13,8 @@ from tickets import registrar as registrar_tickets
 
 from saques import registrar as registrar_saques
 
+from admin import registrar as registrar_admin
+
 from database import conn, cursor
 
 
@@ -28,8 +30,9 @@ bot = telebot.TeleBot(
 
 )
 
+
 # ==========================================
-# MÓDULOS
+# REGISTRAR MÓDULOS
 # ==========================================
 
 registrar_usuario(bot)
@@ -37,6 +40,8 @@ registrar_usuario(bot)
 registrar_tickets(bot)
 
 registrar_saques(bot)
+
+registrar_admin(bot)
 
 
 # ==========================================
@@ -64,3 +69,13 @@ Use o menu abaixo para navegar pelo bot.
 
     )
 
+
+# ==========================================
+# INICIAR BOT
+# ==========================================
+
+print("Bot iniciado com sucesso.")
+
+bot.infinity_polling(
+    skip_pending=True
+)
