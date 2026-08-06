@@ -99,27 +99,31 @@ def novo_membro(message):
 @bot.message_handler(commands=["criarlink"])
 def criar_link_teste(message):
 
-    if message.chat.id != message.from_user.id:
-        return
-
     try:
 
+        chat = bot.get_chat(GRUPO_ID)
+
         convite = bot.create_chat_invite_link(
-            chat_id=GRUPO_ID,
-            creates_join_request=False,
-            name=f"user_{message.from_user.id}"
+            chat_id=GRUPO_ID
         )
 
         bot.send_message(
             message.chat.id,
-            f"✅ Link criado:\n\n{convite.invite_link}"
+            f"""
+Grupo:
+{chat.title}
+
+Link:
+
+{convite.invite_link}
+"""
         )
 
     except Exception as erro:
 
         bot.send_message(
             message.chat.id,
-            f"❌ Erro:\n{erro}"
+            str(erro)
         )
 
 # ==========================================
