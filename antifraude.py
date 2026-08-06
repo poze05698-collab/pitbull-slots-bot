@@ -1,67 +1,11 @@
 from database import cursor, conn
 from utils import data_atual
 
-
 # ==========================================
-# REGISTRAR FRAUDE
-# ==========================================
-
-def registrar_fraude(usuario_id, indicador_id, motivo):
-
-    cursor.execute(
-        """
-        INSERT INTO fraudes
-        (
-            usuario_id,
-            indicador_id,
-            motivo,
-            data
-        )
-        VALUES (?, ?, ?, ?)
-        """,
-        (
-            usuario_id,
-            indicador_id,
-            motivo,
-            data_atual()
-        )
-    )
-
-    conn.commit()
-
-
-# ==========================================
-# USUÁRIO JÁ FOI INDICADO
+# VERIFICAR BANIMENTO
 # ==========================================
 
-def usuario_ja_indicado(user_id):
-
-    cursor.execute(
-        """
-        SELECT id
-        FROM indicacoes
-        WHERE indicado_id=?
-        """,
-        (user_id,)
-    )
-
-    return cursor.fetchone() is not None
-
-
-# ==========================================
-# AUTO INDICAÇÃO
-# ==========================================
-
-def auto_indicacao(indicador, indicado):
-
-    return int(indicador) == int(indicado)
-
-
-# ==========================================
-# USUÁRIO BANIDO
-# ==========================================
-
-def usuario_banido(user_id):
+def usuario_banido(usuario_id):
 
     cursor.execute(
         """
@@ -69,7 +13,7 @@ def usuario_banido(user_id):
         FROM usuarios
         WHERE id=?
         """,
-        (user_id,)
+        (usuario_id,)
     )
 
     resultado = cursor.fetchone()
@@ -81,83 +25,107 @@ def usuario_banido(user_id):
 
 
 # ==========================================
-# INDICAÇÃO DUPLICADA
+# REGISTRAR FRAUDE
 # ==========================================
 
-def indicacao_existente(indicador, indicado):
+def registrar_fraude(usuario_id, indicador_id, motivo, acao):
 
     cursor.execute(
         """
-        SELECT id
-        FROM indicacoes
-        WHERE indicador_id=?
-        AND indicado_id=?
+        INSERT INTO fraudes
+        (
+            usuario_id,
+            indicador_id,
+            motivo,
+            acao,
+            data
+        )
+        VALUES (?, ?, ?, ?, ?)
         """,
-        (indicador, indicado)
+        (
+            usuario_id,
+            indicador_id,
+            motivo,
+            acao,
+            data_atual()
+        )
     )
 
-    return cursor.fetchone() is not None
+    conn.commit()
 
 
 # ==========================================
-# VALIDAÇÃO
+# VALIDAR INDICAÇÃO
 # ==========================================
 
-def validar_indicacao(indicador, indicado):
+def validar_indicacao(indicador_id, indicado_id):
 
-    if auto_indicacao(indicador, indicado):
+    # Auto indicação
+    if indicador_id == indicado_id:
 
         registrar_fraude(
-            indicado,
-            indicador,
-            "Auto indicação"
+            indicado_id,
+            indicador_id,
+            "Auto indicação",
+            "Bloqueado"
         )
 
         return False, "Você não pode indicar a si mesmo."
 
-
-    if usuario_banido(indicador):
+    # Usuário banido
+    if usuario_banido(indicado_id):
 
         registrar_fraude(
-            indicado,
-            indicador,
-            "Indicador banido"
+            indicado_id,
+            indicador_id,
+            "Usuário banido",
+            "Bloqueado"
         )
 
-        return False, "Conta do indicador banida."
+        return False, "Este usuário está bloqueado."
 
+    # Já foi indicado anteriormente
+    cursor.execute(
+        """
+        SELECT id
+        FROM indicacoes
+        WHERE indicado_id=?
+        """,
+        (indicado_id,)
+    )
 
-    if usuario_banido(indicado):
-
-        registrar_fraude(
-            indicado,
-            indicador,
-            "Indicado banido"
-        )
-
-        return False, "Conta do indicado banida."
-
-
-    if usuario_ja_indicado(indicado):
+    if cursor.fetchone():
 
         registrar_fraude(
-            indicado,
-            indicador,
-            "Usuário já indicado"
+            indicado_id,
+            indicador_id,
+            "Indicação duplicada",
+            "Ignorado"
         )
 
         return False, "Este usuário já foi indicado."
 
-
-    if indicacao_existente(indicador, indicado):
-
-        registrar_fraude(
-            indicado,
-            indicador,
-            "Indicação duplicada"
-        )
-
-        return False, "Esta indicação já existe."
-
-
     return True, "OK"
+
+
+# ==========================================
+# LISTAR FRAUDES
+# ==========================================
+
+def listar_fraudes():
+
+    cursor.execute(
+        """
+        SELECT
+            id,
+            usuario_id,
+            indicador_id,
+            motivo,
+            acao,
+            data
+        FROM fraudes
+        ORDER BY id DESC
+        """
+    )
+
+    return cursor.fetchall()
