@@ -1,124 +1,86 @@
+from telebot import types
+
 from database import cursor, conn
 from utils import data_atual, registrar_historico
 
 
-def abrir_ticket(usuario_id, assunto, mensagem):
+def registrar(bot):
 
-    cursor.execute(
-        """
-        INSERT INTO tickets
-        (
-            usuario_id,
-            assunto,
-            mensagem,
-            resposta,
-            status,
-            admin_id,
-            data,
-            data_resposta
+    estados = {}
+
+    @bot.message_handler(func=lambda m: m.text == "🎫 Suporte")
+    def abrir_suporte(message):
+
+        estados[message.from_user.id] = "AGUARDANDO_MENSAGEM"
+
+        bot.send_message(
+
+            message.chat.id,
+
+            "✍️ Escreva sua mensagem para o suporte."
+
         )
-        VALUES (?, ?, ?, '', 'ABERTO', NULL, ?, NULL)
-        """,
-        (
-            usuario_id,
-            assunto,
-            mensagem,
-            data_atual()
+
+
+    @bot.message_handler(func=lambda m: m.from_user.id in estados)
+    def receber_ticket(message):
+
+        if estados[message.from_user.id] != "AGUARDANDO_MENSAGEM":
+            return
+
+        cursor.execute(
+
+            """
+            INSERT INTO tickets
+            (
+                usuario_id,
+                assunto,
+                mensagem,
+                resposta,
+                status,
+                admin_id,
+                data,
+                data_resposta,
+                fechado_em
+            )
+
+            VALUES
+            (?, ?, ?, '', 'ABERTO', NULL, ?, NULL, NULL)
+
+            """,
+
+            (
+
+                message.from_user.id,
+
+                "Suporte",
+
+                message.text,
+
+                data_atual()
+
+            )
+
         )
-    )
 
-    conn.commit()
+        conn.commit()
 
-    registrar_historico(
-        usuario_id,
-        "TICKET",
-        f"Ticket aberto: {assunto}"
-    )
+        registrar_historico(
 
-    return cursor.lastrowid
+            message.from_user.id,
 
+            "TICKET",
 
-# ==========================================
-# BUSCAR TICKET
-# ==========================================
+            "Ticket aberto"
 
-def buscar_ticket(ticket_id):
-
-    cursor.execute(
-        """
-        SELECT *
-        FROM tickets
-        WHERE id=?
-        """,
-        (ticket_id,)
-    )
-
-    return cursor.fetchone()
-
-
-# ==========================================
-# LISTAR TICKETS ABERTOS
-# ==========================================
-
-def listar_tickets():
-
-    cursor.execute(
-        """
-        SELECT *
-        FROM tickets
-        WHERE status='ABERTO'
-        ORDER BY id
-        """
-    )
-
-    return cursor.fetchall()
-
-
-# ==========================================
-# RESPONDER TICKET
-# ==========================================
-
-def responder_ticket(ticket_id, admin_id, resposta):
-
-    cursor.execute(
-        """
-        UPDATE tickets
-        SET
-
-        resposta=?,
-
-        status='RESPONDIDO',
-
-        admin_id=?,
-
-        data_resposta=?
-
-        WHERE id=?
-        """,
-        (
-            resposta,
-            admin_id,
-            data_atual(),
-            ticket_id
         )
-    )
 
-    conn.commit()
+        estados.pop(message.from_user.id)
 
+        bot.send_message(
 
-# ==========================================
-# FECHAR TICKET
-# ==========================================
+            message.chat.id,
 
-def fechar_ticket(ticket_id):
+            "✅ Seu ticket foi enviado para o administrador."
 
-    cursor.execute(
-        """
-        UPDATE tickets
-        SET status='FECHADO'
-        WHERE id=?
-        """,
-        (ticket_id,)
-    )
-
-    conn.commit()
+        )
