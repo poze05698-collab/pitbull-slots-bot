@@ -129,3 +129,38 @@ def listar_fraudes():
     )
 
     return cursor.fetchall()
+
+# ==========================================
+# BANIR USUÁRIO
+# ==========================================
+
+def banir_usuario(usuario_id):
+
+    cursor.execute(
+        """
+        UPDATE usuarios
+        SET banido=1
+        WHERE id=?
+        """,
+        (usuario_id,)
+    )
+
+    conn.commit()
+
+
+# ==========================================
+# DESBANIR USUÁRIO
+# ==========================================
+
+def desbanir_usuario(usuario_id):
+
+    cursor.execute(
+        """
+        UPDATE usuarios
+        SET banido=0
+        WHERE id=?
+        """,
+        (usuario_id,)
+    )
+
+    conn.commit()
