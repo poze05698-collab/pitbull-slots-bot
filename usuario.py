@@ -23,8 +23,6 @@ from antifraude import usuario_banido
 
 from indicacoes import (
     gerar_link,
-    buscar_link_convite,
-    salvar_link_convite,
     indicacoes_usuario
 )
 
@@ -429,58 +427,39 @@ Nossa equipe responderá o mais rápido possível.
 # ==========================================
 
     @bot.message_handler(func=lambda m: m.text == "🔗 Meu Link")
-def meu_link(message):
+    def meu_link(message):
 
-    if usuario_banido(message.from_user.id):
+        if usuario_banido(message.from_user.id):
 
-        bot.send_message(
-            message.chat.id,
-            "❌ Você está bloqueado."
-        )
+            bot.send_message(
+                message.chat.id,
+                "❌ Você está bloqueado."
+            )
 
-        return
+            return
 
-    link = buscar_link_convite(message.from_user.id)
+        link = gerar_link(message.from_user.id)
 
-if link is None:
-
-    try:
-
-        convite = bot.create_chat_invite_link(
-            chat_id=GRUPO_ID,
-            creates_join_request=False,
-            name=f"user_{message.from_user.id}"
-        )
-
-        link = convite.invite_link
-
-        salvar_link_convite(
-            message.from_user.id,
-            link
-        )
-
-    except ApiTelegramException:
-
-        bot.send_message(
-            message.chat.id,
-            "❌ Não foi possível criar seu link de convite."
-        )
-
-        return
+if not link:
 
     bot.send_message(
         message.chat.id,
-        f"""
+        "⏳ Seu link ainda não foi gerado."
+    )
+
+    return
+
+        bot.send_message(
+            message.chat.id,
+            f"""
 🔗 <b>SEU LINK DE CONVITE</b>
 
-Compartilhe este link com seus amigos.
+Compartilhe este link:
 
 <code>{link}</code>
-
-Sua indicação ficará pendente até a aprovação do administrador.
 """,
-        parse_mode="HTML"
-    )
+            parse_mode="HTML"
+        )
 
 
 # ==========================================
