@@ -423,11 +423,11 @@ Nossa equipe responderá o mais rápido possível.
 
         )
 
-# ==========================================
-# MEU LINK
-# ==========================================
+    # ==========================================
+    # MEU LINK
+    # ==========================================
 
-        @bot.message_handler(func=lambda m: m.text == "🔗 Meu Link")
+    @bot.message_handler(func=lambda m: m.text == "🔗 Meu Link")
     def meu_link(message):
 
         if usuario_banido(message.from_user.id):
@@ -458,7 +458,7 @@ Nossa equipe responderá o mais rápido possível.
                     f"user_{message.from_user.id}"
                 )
 
-            except Exception as erro:
+            except ApiTelegramException as erro:
 
                 bot.send_message(
                     message.chat.id,
