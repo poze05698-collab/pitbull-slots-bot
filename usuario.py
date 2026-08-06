@@ -440,14 +440,14 @@ Nossa equipe responderá o mais rápido possível.
 
         link = gerar_link(message.from_user.id)
 
-if not link:
+        if not link:
 
-    bot.send_message(
-        message.chat.id,
-        "⏳ Seu link ainda não foi gerado."
-    )
+            bot.send_message(
+                message.chat.id,
+                "⏳ Seu link ainda não foi gerado."
+            )
 
-    return
+            return
 
         bot.send_message(
             message.chat.id,
@@ -460,7 +460,6 @@ Compartilhe este link:
 """,
             parse_mode="HTML"
         )
-
 
 # ==========================================
 # MINHAS INDICAÇÕES
