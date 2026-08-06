@@ -171,29 +171,29 @@ Envie todos os detalhes para facilitar o atendimento.
 
         )
 
-        try:
+                try:
 
-    markup = types.InlineKeyboardMarkup()
+            markup = types.InlineKeyboardMarkup()
 
-    markup.row(
+            markup.row(
 
-        types.InlineKeyboardButton(
-            "✉️ Responder",
-            callback_data=f"ticket_resp_{user_id}"
-        ),
+                types.InlineKeyboardButton(
+                    "✉️ Responder",
+                    callback_data=f"ticket_resp_{user_id}"
+                ),
 
-        types.InlineKeyboardButton(
-            "❌ Fechar",
-            callback_data=f"ticket_close_{user_id}"
-        )
+                types.InlineKeyboardButton(
+                    "❌ Fechar",
+                    callback_data=f"ticket_close_{user_id}"
+                )
 
-    )
+            )
 
-    bot.send_message(
+            bot.send_message(
 
-        ADMIN_ID,
+                ADMIN_ID,
 
-        f"""
+                f"""
 🎫 <b>NOVO TICKET</b>
 
 👤 Usuário:
@@ -204,11 +204,14 @@ Envie todos os detalhes para facilitar o atendimento.
 {mensagem}
 """,
 
-        parse_mode="HTML",
+                parse_mode="HTML",
+                reply_markup=markup
 
-        reply_markup=markup
+            )
 
-    )
+        except Exception as erro:
+
+            print(f"Erro ao enviar ticket para o admin: {erro}")
 
 except:
     pass
