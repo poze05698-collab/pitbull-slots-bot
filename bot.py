@@ -81,16 +81,16 @@ def novo_membro(message):
     if message.chat.id != GRUPO_ID:
         return
 
+    print("========== NOVO MEMBRO ==========")
+    print(message.json)
+
     for membro in message.new_chat_members:
 
         if membro.is_bot:
             continue
 
-        print(f"Novo membro: {membro.id} - {membro.first_name}")
-
-        # Nas próximas etapas vamos identificar
-        # qual convite foi usado e registrar
-        # automaticamente a indicação.
+        print(f"ID: {membro.id}")
+        print(f"NOME: {membro.first_name}")
 
 # ==========================================
 # CRIAR LINK DE CONVITE
