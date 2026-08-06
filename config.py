@@ -2,30 +2,30 @@
 # TOKEN DO BOT
 # =====================================================
 
-TOKEN = "COLOQUE_SEU_TOKEN_AQUI"
+TOKEN = "8771309444:AAEOZJdlGIWwezJsSVWENvzbplWrowt9IcY"
 
 
 # =====================================================
 # ADMINISTRADOR
 # =====================================================
 
-ADMIN_ID = 123456789
+ADMIN_ID = 6172813641
 
 
 # =====================================================
 # BOT
 # =====================================================
 
-BOT_USERNAME = "SeuBot"
+BOT_USERNAME = "@PITBULL_SLOTS_BOT"
 
 
 # =====================================================
 # GRUPO
 # =====================================================
 
-GRUPO_ID = -1001234567890
+GRUPO_ID = -1003355182545
 
-GRUPO_LINK = "https://t.me/SeuGrupo"
+GRUPO_LINK = "https://t.me/pitbullslotsofc"
 
 
 # =====================================================
@@ -69,4 +69,4 @@ PIX_OBRIGATORIO = True
 # SUPORTE
 # =====================================================
 
-SUPORTE = "@SeuSuporte"
+SUPORTE = "@PitbullSlots011"
