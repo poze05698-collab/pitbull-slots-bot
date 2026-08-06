@@ -19,9 +19,14 @@ from indicacoes import (
 
 from saques import (
     aprovar_saque,
-    rejeitar_saque
+    rejeitar_saque,
+    listar_saques_pendentes
 )
 
+from antifraude import (
+    banir_usuario,
+    desbanir_usuario
+)
 
 # ==========================================
 # VERIFICAR ADMIN
@@ -58,33 +63,22 @@ def registrar(bot):
             return
 
         teclado = types.ReplyKeyboardMarkup(
-
             resize_keyboard=True
-
         )
 
         teclado.row(
-
             "🎁 Indicações",
-
             "💸 Saques"
-
         )
 
         teclado.row(
-
             "👥 Usuários",
-
             "📊 Estatísticas"
-
         )
 
         teclado.row(
-
             "🚫 Banimentos",
-
             "⬅️ Menu"
-
         )
 
         bot.send_message(
@@ -113,35 +107,25 @@ Escolha uma opção.
         if not admin_autorizado(message.from_user.id):
             return
 
-        cursor.execute("""
-
-        SELECT
-
-        i.id,
-
-        u1.nome,
-
-        u2.nome,
-
-        i.valor,
-
-        i.data,
-
-        i.grupo_confirmado
-
-        FROM indicacoes i
-
-        JOIN usuarios u1
-        ON u1.id=i.indicador_id
-
-        JOIN usuarios u2
-        ON u2.id=i.indicado_id
-
-        WHERE i.status='PENDENTE'
-
-        ORDER BY i.id
-
-        """)
+        cursor.execute(
+            """
+            SELECT
+                i.id,
+                u1.nome,
+                u2.nome,
+                i.valor,
+                i.data,
+                i.grupo_confirmado
+            FROM indicacoes i
+            JOIN usuarios u1
+                ON u1.id = i.indicador_id
+            JOIN usuarios u2
+                ON u2.id = i.indicado_id
+            WHERE i.status=?
+            ORDER BY i.id
+            """,
+            (STATUS_PENDENTE,)
+        )
 
         lista = cursor.fetchall()
 
@@ -215,15 +199,28 @@ Escolha uma opção.
 
             )
 
-
-# ==========================================
-# APROVAR INDICAÇÃO
-# ==========================================
+    # ==========================================
+    # APROVAR INDICAÇÃO
+    # ==========================================
 
     @bot.callback_query_handler(
         func=lambda call: call.data.startswith("aprovar_indicacao:")
     )
     def callback_aprovar_indicacao(call):
+
+        if not admin_autorizado(call.from_user.id):
+
+            bot.answer_callback_query(
+
+                call.id,
+
+                "Sem permissão.",
+
+                show_alert=True
+
+            )
+
+            return
 
         indicacao_id = int(call.data.split(":")[1])
 
@@ -253,9 +250,9 @@ Escolha uma opção.
 
         bot.edit_message_reply_markup(
 
-            call.message.chat.id,
+            chat_id=call.message.chat.id,
 
-            call.message.message_id,
+            message_id=call.message.message_id,
 
             reply_markup=None
 
@@ -284,19 +281,34 @@ O valor já está disponível em seu saldo.
             )
 
         except:
+
             pass
 
         bot.answer_callback_query(call.id)
 
 
-# ==========================================
-# REJEITAR INDICAÇÃO
-# ==========================================
+    # ==========================================
+    # REJEITAR INDICAÇÃO
+    # ==========================================
 
     @bot.callback_query_handler(
         func=lambda call: call.data.startswith("rejeitar_indicacao:")
     )
     def callback_rejeitar_indicacao(call):
+
+        if not admin_autorizado(call.from_user.id):
+
+            bot.answer_callback_query(
+
+                call.id,
+
+                "Sem permissão.",
+
+                show_alert=True
+
+            )
+
+            return
 
         indicacao_id = int(call.data.split(":")[1])
 
@@ -330,9 +342,9 @@ O valor já está disponível em seu saldo.
 
         bot.edit_message_reply_markup(
 
-            call.message.chat.id,
+            chat_id=call.message.chat.id,
 
-            call.message.message_id,
+            message_id=call.message.message_id,
 
             reply_markup=None
 
@@ -363,10 +375,10 @@ Motivo:
             )
 
         except:
+
             pass
 
         bot.answer_callback_query(call.id)
-
 
     # ==========================================
     # SAQUES PENDENTES
@@ -378,31 +390,16 @@ Motivo:
         if not admin_autorizado(message.from_user.id):
             return
 
-        cursor.execute(
-            """
-            SELECT
-                s.id,
-                u.nome,
-                s.usuario_id,
-                s.valor,
-                s.pix,
-                s.data
-            FROM saques s
-            JOIN usuarios u
-                ON u.id = s.usuario_id
-            WHERE s.status=?
-            ORDER BY s.id
-            """,
-            (STATUS_PENDENTE,)
-        )
-
-        saques = cursor.fetchall()
+        saques = listar_saques_pendentes()
 
         if not saques:
 
             bot.send_message(
+
                 message.chat.id,
+
                 "✅ Não existem saques pendentes."
+
             )
 
             return
@@ -414,13 +411,19 @@ Motivo:
             teclado.row(
 
                 types.InlineKeyboardButton(
+
                     "✅ Aprovar",
+
                     callback_data=f"aprovar_saque:{saque[0]}"
+
                 ),
 
                 types.InlineKeyboardButton(
+
                     "❌ Rejeitar",
+
                     callback_data=f"rejeitar_saque:{saque[0]}"
+
                 )
 
             )
@@ -433,19 +436,20 @@ Motivo:
 💸 <b>SAQUE #{saque[0]}</b>
 
 👤 Usuário:
-{saque[1]}
 
-🆔 ID:
-<code>{saque[2]}</code>
+<code>{saque[1]}</code>
 
 💰 Valor:
-{dinheiro(saque[3])}
+
+{dinheiro(saque[2])}
 
 💳 PIX:
-<code>{saque[4]}</code>
+
+<code>{saque[3]}</code>
 
 📅 Data:
-{saque[5]}
+
+{saque[4]}
 """,
 
                 parse_mode="HTML",
@@ -464,19 +468,40 @@ Motivo:
     )
     def callback_aprovar_saque(call):
 
+        if not admin_autorizado(call.from_user.id):
+
+            bot.answer_callback_query(
+
+                call.id,
+
+                "Sem permissão.",
+
+                show_alert=True
+
+            )
+
+            return
+
         saque_id = int(call.data.split(":")[1])
 
         sucesso, retorno = aprovar_saque(
+
             saque_id,
+
             call.from_user.id
+
         )
 
         if not sucesso:
 
             bot.answer_callback_query(
+
                 call.id,
+
                 retorno,
+
                 show_alert=True
+
             )
 
             return
@@ -484,14 +509,21 @@ Motivo:
         usuario_id = retorno
 
         bot.edit_message_reply_markup(
+
             chat_id=call.message.chat.id,
+
             message_id=call.message.message_id,
+
             reply_markup=None
+
         )
 
         bot.send_message(
+
             call.message.chat.id,
+
             "✅ Saque aprovado com sucesso."
+
         )
 
         try:
@@ -509,6 +541,7 @@ Em breve o pagamento será realizado.
             )
 
         except:
+
             pass
 
         bot.answer_callback_query(call.id)
@@ -522,6 +555,20 @@ Em breve o pagamento será realizado.
         func=lambda call: call.data.startswith("rejeitar_saque:")
     )
     def callback_rejeitar_saque(call):
+
+        if not admin_autorizado(call.from_user.id):
+
+            bot.answer_callback_query(
+
+                call.id,
+
+                "Sem permissão.",
+
+                show_alert=True
+
+            )
+
+            return
 
         saque_id = int(call.data.split(":")[1])
 
@@ -540,9 +587,13 @@ Em breve o pagamento será realizado.
         if not sucesso:
 
             bot.answer_callback_query(
+
                 call.id,
+
                 retorno,
+
                 show_alert=True
+
             )
 
             return
@@ -550,14 +601,21 @@ Em breve o pagamento será realizado.
         usuario_id = retorno
 
         bot.edit_message_reply_markup(
+
             chat_id=call.message.chat.id,
+
             message_id=call.message.message_id,
+
             reply_markup=None
+
         )
 
         bot.send_message(
+
             call.message.chat.id,
+
             "❌ Saque rejeitado."
+
         )
 
         try:
@@ -577,9 +635,68 @@ Motivo:
             )
 
         except:
+
             pass
 
         bot.answer_callback_query(call.id)
+
+    # ==========================================
+    # USUÁRIOS
+    # ==========================================
+
+    @bot.message_handler(func=lambda m: m.text == "👥 Usuários")
+    def listar_usuarios(message):
+
+        if not admin_autorizado(message.from_user.id):
+            return
+
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM usuarios
+            """
+        )
+
+        total = cursor.fetchone()[0]
+
+        bot.send_message(
+
+            message.chat.id,
+
+            f"""
+👥 <b>USUÁRIOS</b>
+
+Total de usuários cadastrados:
+
+<b>{total}</b>
+""",
+
+            parse_mode="HTML"
+
+        )
+
+
+    # ==========================================
+    # BANIMENTOS
+    # ==========================================
+
+    @bot.message_handler(func=lambda m: m.text == "🚫 Banimentos")
+    def menu_banimentos(message):
+
+        if not admin_autorizado(message.from_user.id):
+            return
+
+        bot.send_message(
+
+            message.chat.id,
+
+            """
+🚫 Sistema de banimentos
+
+Esta função será integrada ao módulo antifraude.py.
+"""
+
+        )
 
 
     # ==========================================
@@ -592,7 +709,9 @@ Motivo:
         if not admin_autorizado(message.from_user.id):
             return
 
-        cursor.execute("SELECT COUNT(*) FROM usuarios")
+        cursor.execute(
+            "SELECT COUNT(*) FROM usuarios"
+        )
         usuarios = cursor.fetchone()[0]
 
         cursor.execute(
