@@ -199,6 +199,34 @@ Escolha uma opção.
 
             )
 
+try:
+
+    membro = bot.get_chat_member(
+        GRUPO_ID,
+        indicado_id
+    )
+
+    if membro.status in (
+        "left",
+        "kicked"
+    ):
+
+        bot.answer_callback_query(
+            call.id,
+            "❌ O usuário ainda não entrou no grupo."
+        )
+
+        return
+
+except Exception:
+
+    bot.answer_callback_query(
+        call.id,
+        "❌ Não foi possível verificar o grupo."
+    )
+
+    return
+    
     # ==========================================
     # APROVAR INDICAÇÃO
     # ==========================================
