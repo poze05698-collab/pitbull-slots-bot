@@ -17,6 +17,8 @@ from admin import registrar as registrar_admin
 
 from database import conn, cursor
 
+from config import GRUPO_ID
+from indicacoes import registrar_indicacao, confirmar_entrada_grupo
 
 # ==========================================
 # BOT
@@ -69,6 +71,26 @@ Use o menu abaixo para navegar pelo bot.
 
     )
 
+# ==========================================
+# NOVO MEMBRO NO GRUPO
+# ==========================================
+
+@bot.message_handler(content_types=["new_chat_members"])
+def novo_membro(message):
+
+    if message.chat.id != GRUPO_ID:
+        return
+
+    for membro in message.new_chat_members:
+
+        if membro.is_bot:
+            continue
+
+        print(f"Novo membro: {membro.id} - {membro.first_name}")
+
+        # Nas próximas etapas vamos identificar
+        # qual convite foi usado e registrar
+        # automaticamente a indicação.
 
 # ==========================================
 # INICIAR BOT
