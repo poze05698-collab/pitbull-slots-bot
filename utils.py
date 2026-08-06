@@ -93,6 +93,27 @@ def saldo_pendente(user_id):
 
     return 0
 
+# ==========================================
+# SAQUE PENDENTE
+# ==========================================
+
+def saque_pendente(user_id):
+
+    cursor.execute(
+        """
+        SELECT saque_pendente
+        FROM usuarios
+        WHERE id=?
+        """,
+        (user_id,)
+    )
+
+    resultado = cursor.fetchone()
+
+    if resultado:
+        return resultado[0]
+
+    return 0
 
 # ==========================================
 # REGISTRAR HISTÓRICO
