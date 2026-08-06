@@ -444,10 +444,11 @@ Convide seus amigos usando o link abaixo:
 
         )
 
-        # ==========================================
+    
+    # ==========================================
     # MINHAS INDICAÇÕES
     # ==========================================
-
+    
     @bot.message_handler(func=lambda m: m.text == "👥 Minhas Indicações")
     def minhas_indicacoes(message):
 
