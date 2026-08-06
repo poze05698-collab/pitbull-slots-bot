@@ -28,6 +28,8 @@ from indicacoes import (
     indicacoes_usuario
 )
 
+from config import GRUPO_ID
+from telebot.apihelper import ApiTelegramException
 
 # ==========================================
 # CADASTRAR USUÁRIO
@@ -440,13 +442,28 @@ def meu_link(message):
 
     link = buscar_link_convite(message.from_user.id)
 
-    if link is None:
+if link is None:
+
+    try:
+
+        convite = bot.create_chat_invite_link(
+            chat_id=GRUPO_ID,
+            creates_join_request=False,
+            name=f"user_{message.from_user.id}"
+        )
+
+        link = convite.invite_link
+
+        salvar_link_convite(
+            message.from_user.id,
+            link
+        )
+
+    except ApiTelegramException:
 
         bot.send_message(
             message.chat.id,
-            "⏳ Seu link de convite ainda não foi criado.\n\n"
-            "Na próxima etapa vamos integrar a criação automática "
-            "do convite pelo Telegram."
+            "❌ Não foi possível criar seu link de convite."
         )
 
         return
