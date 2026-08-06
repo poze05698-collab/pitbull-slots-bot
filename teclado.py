@@ -1,72 +1,141 @@
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton
+from telebot import types
 
-# ==========================================
+
+# =====================================================
 # MENU PRINCIPAL
-# ==========================================
+# =====================================================
 
 def menu_principal():
 
-    menu = ReplyKeyboardMarkup(
-        resize_keyboard=True,
-        row_width=2
+    teclado = types.ReplyKeyboardMarkup(
+        resize_keyboard=True
     )
 
-    menu.add(
-        KeyboardButton("👤 Perfil"),
-        KeyboardButton("💰 Saldo")
+    teclado.row(
+        "👤 Perfil",
+        "💰 Saldo"
     )
 
-    menu.add(
-        KeyboardButton("👥 Indicados"),
-        KeyboardButton("🔗 Meu Link")
+    teclado.row(
+        "🔗 Meu Link",
+        "👥 Minhas Indicações"
     )
 
-    menu.add(
-        KeyboardButton("💳 PIX"),
-        KeyboardButton("💸 Solicitar Saque")
+    teclado.row(
+        "💳 PIX",
+        "💸 Solicitar Saque"
     )
 
-    menu.add(
-        KeyboardButton("📜 Histórico"),
-        KeyboardButton("🎫 Suporte")
+    teclado.row(
+        "🎫 Suporte",
+        "📜 Histórico"
     )
 
-    menu.add(
-        KeyboardButton("📖 Regras"),
-        KeyboardButton("ℹ️ Informações")
+    teclado.row(
+        "📖 Regras",
+        "ℹ️ Informações"
     )
 
-    return menu
+    return teclado
 
 
-# ==========================================
+# =====================================================
 # MENU ADMIN
-# ==========================================
+# =====================================================
 
 def menu_admin():
 
-    menu = ReplyKeyboardMarkup(
-        resize_keyboard=True,
-        row_width=2
+    teclado = types.ReplyKeyboardMarkup(
+        resize_keyboard=True
     )
 
-    menu.add(
-        KeyboardButton("📊 Estatísticas"),
-        KeyboardButton("👥 Usuários")
+    teclado.row(
+        "🎁 Indicações",
+        "💸 Saques"
     )
 
-    menu.add(
-        KeyboardButton("⏳ Indicações"),
-        KeyboardButton("💸 Saques")
+    teclado.row(
+        "👥 Usuários",
+        "🚫 Banimentos"
     )
 
-    menu.add(
-        KeyboardButton("🎫 Tickets"),
-        KeyboardButton("🚫 Banidos")
+    teclado.row(
+        "📊 Estatísticas",
+        "⚙️ Configurações"
     )
 
-    menu.add(
-        KeyboardButton("🏠 Menu Principal")
+    teclado.row(
+        "⬅️ Menu"
     )
 
-    return menu
+    return teclado
+
+
+# =====================================================
+# CONFIRMAR
+# =====================================================
+
+def teclado_confirmacao(callback_sim, callback_nao):
+
+    teclado = types.InlineKeyboardMarkup()
+
+    teclado.row(
+
+        types.InlineKeyboardButton(
+            "✅ Confirmar",
+            callback_data=callback_sim
+        ),
+
+        types.InlineKeyboardButton(
+            "❌ Cancelar",
+            callback_data=callback_nao
+        )
+
+    )
+
+    return teclado
+
+
+# =====================================================
+# APROVAR / REJEITAR
+# =====================================================
+
+def teclado_aprovacao(aprovar, rejeitar):
+
+    teclado = types.InlineKeyboardMarkup()
+
+    teclado.row(
+
+        types.InlineKeyboardButton(
+            "✅ Aprovar",
+            callback_data=aprovar
+        ),
+
+        types.InlineKeyboardButton(
+            "❌ Rejeitar",
+            callback_data=rejeitar
+        )
+
+    )
+
+    return teclado
+
+
+# =====================================================
+# VOLTAR
+# =====================================================
+
+def teclado_voltar(callback):
+
+    teclado = types.InlineKeyboardMarkup()
+
+    teclado.add(
+
+        types.InlineKeyboardButton(
+            "⬅️ Voltar",
+            callback_data=callback
+        )
+
+    )
+
+    return teclado
