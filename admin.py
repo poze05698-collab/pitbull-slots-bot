@@ -600,7 +600,7 @@ Total de usuários cadastrados:
 
         )
 
-    # ==========================================
+        # ==========================================
     # BANIMENTOS
     # ==========================================
 
@@ -611,9 +611,7 @@ Total de usuários cadastrados:
             return
 
         bot.send_message(
-
             message.chat.id,
-
             """
 🚫 <b>SISTEMA DE BANIMENTOS</b>
 
@@ -623,30 +621,23 @@ Envie um dos comandos abaixo:
 
 <code>/unban ID_DO_USUARIO</code>
 """,
-
             parse_mode="HTML"
-
         )
 
-        @bot.message_handler(commands=["ban"])
+    @bot.message_handler(commands=["ban"])
     def comando_ban(message):
 
         if not admin_autorizado(message.from_user.id):
             return
 
         try:
-
             usuario_id = int(message.text.split()[1])
 
         except:
-
-            ...
-
             bot.reply_to(
                 message,
                 "Uso correto:\n/ban ID_DO_USUARIO"
             )
-
             return
 
         sucesso = banir_usuario(usuario_id)
@@ -658,12 +649,20 @@ Envie um dos comandos abaixo:
                 "✅ Usuário banido."
             )
 
-        try:
-
+            try:
                 bot.send_message(
                     usuario_id,
                     "🚫 Você foi banido do bot."
                 )
+            except:
+                pass
+
+        else:
+
+            bot.send_message(
+                message.chat.id,
+                "❌ Não foi possível banir."
+            )
 
             except:
                 pass
