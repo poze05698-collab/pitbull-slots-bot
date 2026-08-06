@@ -1,8 +1,37 @@
-from database import cursor
+from database import cursor, conn
+from utils import data_atual
 
 
 # ==========================================
-# USUÁRIO JÁ FOI INDICADO?
+# REGISTRAR FRAUDE
+# ==========================================
+
+def registrar_fraude(usuario_id, indicador_id, motivo):
+
+    cursor.execute(
+        """
+        INSERT INTO fraudes
+        (
+            usuario_id,
+            indicador_id,
+            motivo,
+            data
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            usuario_id,
+            indicador_id,
+            motivo,
+            data_atual()
+        )
+    )
+
+    conn.commit()
+
+
+# ==========================================
+# USUÁRIO JÁ FOI INDICADO
 # ==========================================
 
 def usuario_ja_indicado(user_id):
@@ -11,7 +40,7 @@ def usuario_ja_indicado(user_id):
         """
         SELECT id
         FROM indicacoes
-        WHERE indicado_id = ?
+        WHERE indicado_id=?
         """,
         (user_id,)
     )
@@ -20,7 +49,7 @@ def usuario_ja_indicado(user_id):
 
 
 # ==========================================
-# NÃO PODE INDICAR A SI MESMO
+# AUTO INDICAÇÃO
 # ==========================================
 
 def auto_indicacao(indicador, indicado):
@@ -29,7 +58,7 @@ def auto_indicacao(indicador, indicado):
 
 
 # ==========================================
-# USUÁRIO ESTÁ BANIDO?
+# USUÁRIO BANIDO
 # ==========================================
 
 def usuario_banido(user_id):
@@ -38,7 +67,7 @@ def usuario_banido(user_id):
         """
         SELECT banido
         FROM usuarios
-        WHERE id = ?
+        WHERE id=?
         """,
         (user_id,)
     )
@@ -52,7 +81,7 @@ def usuario_banido(user_id):
 
 
 # ==========================================
-# INDICAÇÃO JÁ EXISTE?
+# INDICAÇÃO DUPLICADA
 # ==========================================
 
 def indicacao_existente(indicador, indicado):
@@ -61,8 +90,8 @@ def indicacao_existente(indicador, indicado):
         """
         SELECT id
         FROM indicacoes
-        WHERE indicador_id = ?
-        AND indicado_id = ?
+        WHERE indicador_id=?
+        AND indicado_id=?
         """,
         (indicador, indicado)
     )
@@ -71,24 +100,64 @@ def indicacao_existente(indicador, indicado):
 
 
 # ==========================================
-# VALIDAÇÃO GERAL
+# VALIDAÇÃO
 # ==========================================
 
 def validar_indicacao(indicador, indicado):
 
     if auto_indicacao(indicador, indicado):
+
+        registrar_fraude(
+            indicado,
+            indicador,
+            "Auto indicação"
+        )
+
         return False, "Você não pode indicar a si mesmo."
 
+
     if usuario_banido(indicador):
-        return False, "Sua conta está banida."
+
+        registrar_fraude(
+            indicado,
+            indicador,
+            "Indicador banido"
+        )
+
+        return False, "Conta do indicador banida."
+
 
     if usuario_banido(indicado):
-        return False, "O usuário convidado está banido."
+
+        registrar_fraude(
+            indicado,
+            indicador,
+            "Indicado banido"
+        )
+
+        return False, "Conta do indicado banida."
+
 
     if usuario_ja_indicado(indicado):
-        return False, "Este usuário já foi indicado anteriormente."
+
+        registrar_fraude(
+            indicado,
+            indicador,
+            "Usuário já indicado"
+        )
+
+        return False, "Este usuário já foi indicado."
+
 
     if indicacao_existente(indicador, indicado):
-        return False, "Esta indicação já foi registrada."
 
-    return True, "Indicação válida."
+        registrar_fraude(
+            indicado,
+            indicador,
+            "Indicação duplicada"
+        )
+
+        return False, "Esta indicação já existe."
+
+
+    return True, "OK"
