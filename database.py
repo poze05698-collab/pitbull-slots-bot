@@ -245,6 +245,8 @@ CREATE TABLE IF NOT EXISTS links_convite (
 
     invite_link TEXT UNIQUE,
 
+    invite_name TEXT,
+
     ativo INTEGER DEFAULT 1,
 
     data_criacao TEXT,
