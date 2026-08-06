@@ -228,7 +228,19 @@ Escolha uma opção.
 
             return
 
-                indicado_id = resultado[0]
+                        resultado = cursor.fetchone()
+
+        if not resultado:
+
+            bot.answer_callback_query(
+                call.id,
+                "Indicação não encontrada.",
+                show_alert=True
+            )
+
+            return
+
+        indicado_id = resultado[0]
 
         try:
 
@@ -247,15 +259,6 @@ Escolha uma opção.
 
                 return
 
-        except Exception:
-
-            bot.answer_callback_query(
-                call.id,
-                "❌ Não foi possível verificar o grupo.",
-                show_alert=True
-            )
-
-            return
         except Exception:
 
             bot.answer_callback_query(
