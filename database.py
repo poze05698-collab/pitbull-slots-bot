@@ -98,6 +98,8 @@ CREATE TABLE IF NOT EXISTS tickets(
 
     usuario_id INTEGER,
 
+    assunto TEXT,
+
     mensagem TEXT,
 
     resposta TEXT,
