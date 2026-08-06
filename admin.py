@@ -228,7 +228,7 @@ Escolha uma opção.
 
             return
 
-        indicado_id = resultado[0]
+                indicado_id = resultado[0]
 
         try:
 
@@ -247,6 +247,15 @@ Escolha uma opção.
 
                 return
 
+        except Exception:
+
+            bot.answer_callback_query(
+                call.id,
+                "❌ Não foi possível verificar o grupo.",
+                show_alert=True
+            )
+
+            return
         except Exception:
 
             bot.answer_callback_query(
@@ -644,7 +653,7 @@ Envie um dos comandos abaixo:
 
         )
 
-    @bot.message_handler(commands=["ban"])
+        @bot.message_handler(commands=["ban"])
     def comando_ban(message):
 
         if not admin_autorizado(message.from_user.id):
@@ -655,6 +664,8 @@ Envie um dos comandos abaixo:
             usuario_id = int(message.text.split()[1])
 
         except:
+
+            ...
 
             bot.reply_to(
                 message,
@@ -672,7 +683,7 @@ Envie um dos comandos abaixo:
                 "✅ Usuário banido."
             )
 
-            try:
+        try:
 
                 bot.send_message(
                     usuario_id,
