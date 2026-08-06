@@ -186,7 +186,7 @@ Escolha uma opção.
 
             )
 
-    # ==========================================
+        # ==========================================
     # APROVAR INDICAÇÃO
     # ==========================================
 
@@ -196,13 +196,11 @@ Escolha uma opção.
     def callback_aprovar_indicacao(call):
 
         if not admin_autorizado(call.from_user.id):
-
             bot.answer_callback_query(
                 call.id,
                 "Sem permissão.",
                 show_alert=True
             )
-
             return
 
         indicacao_id = int(call.data.split(":")[1])
@@ -218,55 +216,33 @@ Escolha uma opção.
 
         resultado = cursor.fetchone()
 
-        if not resultado:
-
+        if resultado is None:
             bot.answer_callback_query(
                 call.id,
                 "Indicação não encontrada.",
                 show_alert=True
             )
-
-            return
-
-                        resultado = cursor.fetchone()
-
-        if not resultado:
-
-            bot.answer_callback_query(
-                call.id,
-                "Indicação não encontrada.",
-                show_alert=True
-            )
-
             return
 
         indicado_id = resultado[0]
 
         try:
-
-            membro = bot.get_chat_member(
-                GRUPO_ID,
-                indicado_id
-            )
+            membro = bot.get_chat_member(GRUPO_ID, indicado_id)
 
             if membro.status in ("left", "kicked"):
-
                 bot.answer_callback_query(
                     call.id,
                     "❌ O usuário ainda não entrou no grupo.",
                     show_alert=True
                 )
-
                 return
 
         except Exception:
-
             bot.answer_callback_query(
                 call.id,
                 "❌ Não foi possível verificar o grupo.",
                 show_alert=True
             )
-
             return
 
         sucesso, retorno = aprovar_indicacao(
@@ -275,13 +251,11 @@ Escolha uma opção.
         )
 
         if not sucesso:
-
             bot.answer_callback_query(
                 call.id,
                 retorno,
                 show_alert=True
             )
-
             return
 
         usuario_id = retorno
@@ -298,7 +272,6 @@ Escolha uma opção.
         )
 
         try:
-
             bot.send_message(
                 usuario_id,
                 """
@@ -307,8 +280,7 @@ Escolha uma opção.
 O valor já está disponível em seu saldo.
 """
             )
-
-        except:
+        except Exception:
             pass
 
         bot.answer_callback_query(call.id)
