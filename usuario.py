@@ -380,10 +380,10 @@ def registrar(bot):
 • Após aprovada, o saldo ficará disponível.
 
 • Valor por indicação:
-dinheiro(VALOR_INDICACAO)
+{dinheiro(VALOR_INDICACAO)}
 
 • Saque mínimo:
-dinheiro(VALOR_MINIMO_SAQUE)
+{dinheiro(VALOR_MINIMO_SAQUE)}
 
 Fraudes resultam em banimento.
 """,
