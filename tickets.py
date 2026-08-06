@@ -1,89 +1,51 @@
 from telebot import types
 
-from database import cursor, conn
+from database import conn, cursor
 
-from config import (
-    ADMIN_ID,
-    STATUS_ABERTO
-)
+from config import ADMIN_ID
 
-from utils import (
-    data_atual,
-    registrar_historico
-)
+from utils import data_atual
 
-from antifraude import usuario_banido
+STATUS_ABERTO = "ABERTO"
+STATUS_RESPONDIDO = "RESPONDIDO"
+STATUS_FECHADO = "FECHADO"
 
 
 def registrar(bot):
 
     estados = {}
+
     respostas = {}
-    
+
+
     # ==========================================
-    # ABRIR SUPORTE
+    # ABRIR TICKET
     # ==========================================
 
     @bot.message_handler(func=lambda m: m.text == "🎫 Suporte")
-    def abrir_suporte(message):
+    def abrir_ticket(message):
 
-        user_id = message.from_user.id
-
-        if usuario_banido(user_id):
+        if message.from_user.id in estados:
 
             bot.send_message(
-
                 message.chat.id,
-
-                "❌ Sua conta está bloqueada."
-
+                "❌ Você já possui um atendimento em andamento."
             )
 
             return
 
-        cursor.execute(
-
-            """
-            SELECT id
-            FROM tickets
-            WHERE usuario_id=?
-            AND status=?
-            """,
-
-            (
-
-                user_id,
-
-                STATUS_ABERTO
-
-            )
-
-        )
-
-        if cursor.fetchone():
-
-            bot.send_message(
-
-                message.chat.id,
-
-                "❌ Você já possui um ticket aberto."
-
-            )
-
-            return
-
-        estados[user_id] = "AGUARDANDO_MENSAGEM"
+        estados[message.from_user.id] = True
 
         bot.send_message(
-
             message.chat.id,
-
             """
-✍️ Escreva sua mensagem para o suporte.
+🎫 <b>SUPORTE</b>
 
-Envie todos os detalhes para facilitar o atendimento.
-"""
+Descreva seu problema.
 
+Nossa equipe responderá o mais rápido possível.
+""",
+            parse_mode="HTML"
         )
 
     # ==========================================
@@ -95,99 +57,54 @@ Envie todos os detalhes para facilitar o atendimento.
 
         user_id = message.from_user.id
 
-        if estados.get(user_id) != "AGUARDANDO_MENSAGEM":
-            return
-
         mensagem = message.text.strip()
 
-        if len(mensagem) < 5:
-
-            bot.send_message(
-
-                message.chat.id,
-
-                "❌ Escreva uma mensagem com pelo menos 5 caracteres."
-
-            )
-
-            return
+        estados.pop(user_id)
 
         cursor.execute(
-
             """
             INSERT INTO tickets
             (
                 usuario_id,
-                assunto,
                 mensagem,
-                resposta,
                 status,
-                admin_id,
-                data,
-                data_resposta,
-                fechado_em
+                data
             )
-
             VALUES
-            (?, ?, ?, '', ?, NULL, ?, NULL, NULL)
-
+            (?, ?, ?, ?)
             """,
-
             (
-
                 user_id,
-
-                "Suporte",
-
                 mensagem,
-
                 STATUS_ABERTO,
-
                 data_atual()
-
             )
-
         )
 
         conn.commit()
 
-        registrar_historico(
 
-            user_id,
+    # ==========================================
+    # ENVIAR PARA O ADMIN
+    # ==========================================
 
-            "TICKET",
+        markup = types.InlineKeyboardMarkup()
 
-            "Ticket aberto"
+        markup.row(
 
-        )
+            types.InlineKeyboardButton(
+                "✉️ Responder",
+                callback_data=f"ticket_resp_{user_id}"
+            ),
 
-        estados.pop(user_id, None)
-
-        bot.send_message(
-
-            message.chat.id,
-
-            "✅ Seu ticket foi enviado para o administrador."
-
-        )
-
-                try:
-
-            markup = types.InlineKeyboardMarkup()
-
-            markup.row(
-
-                types.InlineKeyboardButton(
-                    "✉️ Responder",
-                    callback_data=f"ticket_resp_{user_id}"
-                ),
-
-                types.InlineKeyboardButton(
-                    "❌ Fechar",
-                    callback_data=f"ticket_close_{user_id}"
-                )
-
+            types.InlineKeyboardButton(
+                "❌ Fechar",
+                callback_data=f"ticket_close_{user_id}"
             )
+
+        )
+
+        try:
 
             bot.send_message(
 
@@ -205,39 +122,68 @@ Envie todos os detalhes para facilitar o atendimento.
 """,
 
                 parse_mode="HTML",
+
                 reply_markup=markup
 
             )
 
         except Exception as erro:
 
-            print(f"Erro ao enviar ticket para o admin: {erro}")
+            print(f"Erro ao enviar ticket: {erro}")
 
-except:
-    pass
+        bot.send_message(
+
+            message.chat.id,
+
+            """
+✅ Seu ticket foi enviado.
+
+Nossa equipe responderá em breve.
+""",
+
+            parse_mode="HTML"
+
+        )
+
 
     # ==========================================
     # RESPONDER TICKET
     # ==========================================
 
-    @bot.callback_query_handler(func=lambda c: c.data.startswith("ticket_resp_"))
+    @bot.callback_query_handler(
+        func=lambda c: c.data.startswith("ticket_resp_")
+    )
     def responder_ticket(call):
 
-        user_id = int(call.data.split("_")[-1])
+        if call.from_user.id != ADMIN_ID:
 
-        respostas[call.from_user.id] = user_id
+            bot.answer_callback_query(
+                call.id,
+                "Sem permissão."
+            )
 
-        bot.answer_callback_query(call.id)
+            return
+
+        usuario_id = int(
+            call.data.split("_")[-1]
+        )
+
+        respostas[ADMIN_ID] = usuario_id
+
+        bot.answer_callback_query(
+            call.id,
+            "Digite a resposta para o usuário."
+        )
 
         bot.send_message(
 
-            call.message.chat.id,
+            ADMIN_ID,
 
             f"""
-✍️ Digite a resposta para o usuário.
+✍️ Responda o ticket.
 
-ID:
-<code>{user_id}</code>
+Usuário:
+<code>{usuario_id}</code>
 """,
 
             parse_mode="HTML"
@@ -253,12 +199,10 @@ ID:
     )
     def receber_resposta(message):
 
-        admin_id = message.from_user.id
-
-        if admin_id != ADMIN_ID:
+        if message.from_user.id != ADMIN_ID:
             return
 
-        usuario_id = respostas.pop(admin_id)
+        usuario_id = respostas.pop(ADMIN_ID)
 
         resposta = message.text.strip()
 
@@ -267,7 +211,7 @@ ID:
             UPDATE tickets
             SET
                 resposta=?,
-                status='RESPONDIDO',
+                status=?,
                 admin_id=?,
                 data_resposta=?
             WHERE usuario_id=?
@@ -275,7 +219,8 @@ ID:
             """,
             (
                 resposta,
-                admin_id,
+                STATUS_RESPONDIDO,
+                ADMIN_ID,
                 data_atual(),
                 usuario_id,
                 STATUS_ABERTO
@@ -299,18 +244,18 @@ ID:
         )
 
         bot.send_message(
-
-            admin_id,
-
-            "✅ Resposta enviada ao usuário."
-
+            ADMIN_ID,
+            "✅ Resposta enviada."
         )
+
 
     # ==========================================
     # FECHAR TICKET
     # ==========================================
 
-    @bot.callback_query_handler(func=lambda c: c.data.startswith("ticket_close_"))
+    @bot.callback_query_handler(
+        func=lambda c: c.data.startswith("ticket_close_")
+    )
     def fechar_ticket(call):
 
         if call.from_user.id != ADMIN_ID:
@@ -330,16 +275,19 @@ ID:
             """
             UPDATE tickets
             SET
-                status='FECHADO',
+                status=?,
                 admin_id=?,
-                fechado_em=?
+                data_fechamento=?
             WHERE usuario_id=?
-            AND status IN ('ABERTO','RESPONDIDO')
+            AND status IN (?, ?)
             """,
             (
+                STATUS_FECHADO,
                 ADMIN_ID,
                 data_atual(),
-                usuario_id
+                usuario_id,
+                STATUS_ABERTO,
+                STATUS_RESPONDIDO
             )
         )
 
@@ -357,15 +305,15 @@ ID:
                 usuario_id,
 
                 """
-📩 Seu atendimento foi finalizado.
+📩 Seu ticket foi encerrado.
 
-Caso precise de ajuda novamente,
-basta abrir um novo ticket.
+Se precisar de ajuda novamente,
+abra um novo ticket pelo menu.
 """
 
             )
 
-        except:
+        except Exception:
             pass
 
         try:
@@ -376,7 +324,5 @@ basta abrir um novo ticket.
                 reply_markup=None
             )
 
-        except:
+        except Exception:
             pass
-
-            
