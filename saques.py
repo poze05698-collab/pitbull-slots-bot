@@ -1,16 +1,23 @@
 from telebot import types
 
-from database import cursor, conn
-from utils import (
-    registrar_historico,
-    saldo_usuario,
-    saque_pendente,
-    dinheiro
-)
+from database import conn, cursor
 
 from config import (
+    ADMIN_ID,
     VALOR_MINIMO_SAQUE,
-    ADMIN_ID
+    STATUS_PENDENTE,
+    STATUS_APROVADO,
+    STATUS_REJEITADO
+)
+
+from utils import (
+    dinheiro,
+    data_atual,
+    buscar_pix,
+    saldo_usuario,
+    saque_pendente,
+    adicionar_saque_pendente,
+    registrar_historico
 )
 
 # ==========================================
@@ -18,11 +25,11 @@ from config import (
 # ==========================================
 
 aguardando_pix = {}
-aguardando_saque = {}
 
+aguardando_valor = {}
 
 # ==========================================
-# REGISTRAR MÓDULO
+# REGISTRAR
 # ==========================================
 
 def registrar(bot):
@@ -32,18 +39,13 @@ def registrar(bot):
     # ==========================================
 
     @bot.message_handler(func=lambda m: m.text == "💳 PIX")
-    def pix(message):
+    def cadastrar_pix(message):
 
         user_id = message.from_user.id
 
-        cursor.execute(
-            "SELECT pix FROM usuarios WHERE id=?",
-            (user_id,)
-        )
+        pix = buscar_pix(user_id)
 
-        resultado = cursor.fetchone()
-
-        if resultado and resultado[0]:
+        if pix != "":
 
             bot.send_message(
 
@@ -52,9 +54,9 @@ def registrar(bot):
                 f"""
 💳 SUA CHAVE PIX
 
-<code>{resultado[0]}</code>
+<code>{pix}</code>
 
-Envie uma nova chave caso queira alterar.
+Envie uma nova chave para alterá-la.
 """,
 
                 parse_mode="HTML"
@@ -72,24 +74,31 @@ Envie uma nova chave caso queira alterar.
 
 Envie sua chave PIX.
 
-Ela será utilizada para receber seus saques.
+Pode ser:
+
+• CPF
+
+• Telefone
+
+• Email
+
+• Chave Aleatória
 """
 
             )
 
         aguardando_pix[user_id] = True
 
-
     # ==========================================
     # RECEBER PIX
     # ==========================================
 
     @bot.message_handler(func=lambda m: m.from_user.id in aguardando_pix)
-    def salvar_pix(message):
+    def receber_pix(message):
 
         user_id = message.from_user.id
 
-        pix = message.text.strip()
+        chave = message.text.strip()
 
         cursor.execute(
 
@@ -104,7 +113,7 @@ Ela será utilizada para receber seus saques.
 
             (
 
-                pix,
+                chave,
 
                 user_id
 
@@ -130,12 +139,17 @@ Ela será utilizada para receber seus saques.
 
             message.chat.id,
 
-            """
-✅ PIX salvo com sucesso.
-"""
+            f"""
+✅ Chave PIX salva com sucesso.
+
+Sua chave:
+
+<code>{chave}</code>
+""",
+
+            parse_mode="HTML"
 
         )
-
 
     # ==========================================
     # SOLICITAR SAQUE
@@ -146,24 +160,9 @@ Ela será utilizada para receber seus saques.
 
         user_id = message.from_user.id
 
-        cursor.execute(
+        pix = buscar_pix(user_id)
 
-            """
-            SELECT pix
-
-            FROM usuarios
-
-            WHERE id=?
-
-            """,
-
-            (user_id,)
-
-        )
-
-        resultado = cursor.fetchone()
-
-        if resultado is None or resultado[0] == "":
+        if pix == "":
 
             bot.send_message(
 
@@ -190,9 +189,9 @@ Ela será utilizada para receber seus saques.
                 message.chat.id,
 
                 f"""
-❌ Você não possui saldo suficiente.
+❌ Saldo insuficiente.
 
-Saldo disponível:
+Disponível:
 
 {dinheiro(disponivel)}
 
@@ -205,7 +204,7 @@ Valor mínimo:
 
             return
 
-        aguardando_saque[user_id] = True
+        aguardando_valor[user_id] = True
 
         bot.send_message(
 
@@ -227,21 +226,25 @@ Digite o valor que deseja sacar.
     # RECEBER VALOR DO SAQUE
     # ==========================================
 
-    @bot.message_handler(func=lambda m: m.from_user.id in aguardando_saque)
-    def receber_valor_saque(message):
+    @bot.message_handler(func=lambda m: m.from_user.id in aguardando_valor)
+    def receber_valor(message):
 
         user_id = message.from_user.id
 
         try:
+
             valor = float(
                 message.text.replace(",", ".")
             )
 
-        except ValueError:
+        except:
 
             bot.send_message(
+
                 message.chat.id,
+
                 "❌ Digite um valor válido."
+
             )
 
             return
@@ -290,25 +293,9 @@ disponíveis.
 
             return
 
-        cursor.execute(
+        pix = buscar_pix(user_id)
 
-            """
-
-            SELECT pix
-
-            FROM usuarios
-
-            WHERE id=?
-
-            """,
-
-            (user_id,)
-
-        )
-
-        pix = cursor.fetchone()[0]
-
-        teclado = types.InlineKeyboardMarkup()
+        teclado = types.InlineKeyboardMarkup(row_width=2)
 
         teclado.add(
 
@@ -335,18 +322,17 @@ disponíveis.
             message.chat.id,
 
             f"""
+💸 <b>CONFIRMAR SAQUE</b>
 
-💸 CONFIRMAR SAQUE
-
-Valor:
+💰 Valor:
 
 {dinheiro(valor)}
 
-PIX:
+💳 PIX:
 
 <code>{pix}</code>
 
-Deseja continuar?
+Deseja confirmar?
 
 """,
 
@@ -356,87 +342,102 @@ Deseja continuar?
 
         )
 
-        aguardando_saque.pop(user_id)
+        aguardando_valor.pop(user_id)
 
-      # ==========================================
+
+    # ==========================================
     # CONFIRMAR SAQUE
     # ==========================================
 
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("confirmar_saque:"))
+    @bot.callback_query_handler(
+        func=lambda call: call.data.startswith("confirmar_saque:")
+    )
     def confirmar_saque(call):
 
         user_id = call.from_user.id
 
         valor = float(call.data.split(":")[1])
 
-        cursor.execute(
-            """
-            SELECT pix
-            FROM usuarios
-            WHERE id=?
-            """,
-            (user_id,)
-        )
-
-        pix = cursor.fetchone()[0]
+        pix = buscar_pix(user_id)
 
         cursor.execute(
+
             """
             INSERT INTO saques
             (
-                usuario_id,
-                valor,
-                pix,
-                status,
-                motivo_rejeicao,
-                admin_id,
-                data,
-                data_aprovacao
-            )
-            VALUES
-            (?, ?, ?, 'PENDENTE', '', NULL, ?, NULL)
-            """,
-            (
-                user_id,
-                valor,
-                pix,
-                data_atual()
-            )
-        )
 
-        cursor.execute(
-            """
-            UPDATE usuarios
-            SET saque_pendente = saque_pendente + ?
-            WHERE id=?
-            """,
-            (
+                usuario_id,
+
                 valor,
-                user_id
+
+                pix,
+
+                status,
+
+                motivo_rejeicao,
+
+                admin_id,
+
+                data,
+
+                data_aprovacao
+
             )
+
+            VALUES
+
+            (?, ?, ?, ?, '', NULL, ?, NULL)
+
+            """,
+
+            (
+
+                user_id,
+
+                valor,
+
+                pix,
+
+                STATUS_PENDENTE,
+
+                data_atual()
+
+            )
+
         )
 
         conn.commit()
 
-        registrar_historico(
+        adicionar_saque_pendente(
+
             user_id,
-            "SAQUE",
-            "Solicitação de saque",
+
             valor
+
+        )
+
+        registrar_historico(
+
+            user_id,
+
+            "SAQUE",
+
+            "Solicitação de saque",
+
+            valor
+
         )
 
         bot.edit_message_text(
 
             f"""
-
 ✅ Solicitação enviada!
 
-Valor:
+💰 Valor:
 
 {dinheiro(valor)}
 
-Seu saque ficará aguardando aprovação do administrador.
-
+Agora aguarde a aprovação do administrador.
 """,
 
             chat_id=call.message.chat.id,
@@ -445,15 +446,19 @@ Seu saque ficará aguardando aprovação do administrador.
 
         )
 
-        # Avisar administrador
-
         cursor.execute(
+
             """
             SELECT nome
+
             FROM usuarios
+
             WHERE id=?
+
             """,
+
             (user_id,)
+
         )
 
         usuario = cursor.fetchone()[0]
@@ -463,8 +468,7 @@ Seu saque ficará aguardando aprovação do administrador.
             ADMIN_ID,
 
             f"""
-
-💸 NOVA SOLICITAÇÃO DE SAQUE
+💸 <b>NOVA SOLICITAÇÃO DE SAQUE</b>
 
 👤 Usuário:
 
@@ -478,6 +482,7 @@ Seu saque ficará aguardando aprovação do administrador.
 
 {dinheiro(valor)}
 
+Utilize o painel administrativo para aprovar ou rejeitar este saque.
 """,
 
             parse_mode="HTML"
@@ -491,7 +496,9 @@ Seu saque ficará aguardando aprovação do administrador.
     # CANCELAR SAQUE
     # ==========================================
 
-    @bot.callback_query_handler(func=lambda call: call.data == "cancelar_saque")
+    @bot.callback_query_handler(
+        func=lambda call: call.data == "cancelar_saque"
+    )
     def cancelar_saque(call):
 
         bot.edit_message_text(
@@ -506,4 +513,175 @@ Seu saque ficará aguardando aprovação do administrador.
 
         bot.answer_callback_query(call.id)
 
+        # ==========================================
+    # APROVAR SAQUE
+    # ==========================================
 
+    def aprovar_saque(saque_id, admin_id):
+
+        cursor.execute(
+            """
+            SELECT usuario_id, valor, status
+            FROM saques
+            WHERE id=?
+            """,
+            (saque_id,)
+        )
+
+        saque = cursor.fetchone()
+
+        if saque is None:
+            return False, "Saque não encontrado."
+
+        usuario_id, valor, status = saque
+
+        if status != STATUS_PENDENTE:
+            return False, "Este saque já foi processado."
+
+        cursor.execute(
+            """
+            UPDATE saques
+            SET
+                status=?,
+                admin_id=?,
+                data_aprovacao=?
+            WHERE id=?
+            """,
+            (
+                STATUS_APROVADO,
+                admin_id,
+                data_atual(),
+                saque_id
+            )
+        )
+
+        conn.commit()
+
+        remover_saque_pendente(
+            usuario_id,
+            valor
+        )
+
+        remover_saldo(
+            usuario_id,
+            valor
+        )
+
+        registrar_historico(
+
+            usuario_id,
+
+            "SAQUE",
+
+            "Saque aprovado",
+
+            valor
+
+        )
+
+        return True, usuario_id
+
+
+    # ==========================================
+    # REJEITAR SAQUE
+    # ==========================================
+
+    def rejeitar_saque(saque_id, admin_id, motivo):
+
+        cursor.execute(
+            """
+            SELECT usuario_id, valor, status
+            FROM saques
+            WHERE id=?
+            """,
+            (saque_id,)
+        )
+
+        saque = cursor.fetchone()
+
+        if saque is None:
+            return False, "Saque não encontrado."
+
+        usuario_id, valor, status = saque
+
+        if status != STATUS_PENDENTE:
+            return False, "Este saque já foi processado."
+
+        cursor.execute(
+            """
+            UPDATE saques
+            SET
+
+                status=?,
+
+                motivo_rejeicao=?,
+
+                admin_id=?,
+
+                data_aprovacao=?
+
+            WHERE id=?
+            """,
+            (
+
+                STATUS_REJEITADO,
+
+                motivo,
+
+                admin_id,
+
+                data_atual(),
+
+                saque_id
+
+            )
+
+        )
+
+        conn.commit()
+
+        remover_saque_pendente(
+
+            usuario_id,
+
+            valor
+
+        )
+
+        registrar_historico(
+
+            usuario_id,
+
+            "SAQUE",
+
+            f"Saque rejeitado: {motivo}",
+
+            valor
+
+        )
+
+        return True, usuario_id
+
+
+    # ==========================================
+    # LISTAR SAQUES PENDENTES
+    # ==========================================
+
+    def listar_saques_pendentes():
+
+        cursor.execute(
+            """
+            SELECT
+                id,
+                usuario_id,
+                valor,
+                pix,
+                data
+            FROM saques
+            WHERE status=?
+            ORDER BY id
+            """,
+            (STATUS_PENDENTE,)
+        )
+
+        return cursor.fetchall()
