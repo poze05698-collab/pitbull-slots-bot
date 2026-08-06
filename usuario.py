@@ -1,15 +1,30 @@
 from telebot import types
 
-from database import cursor, conn
+from database import conn, cursor
+
 from teclado import menu_principal
+
 from utils import (
     data_atual,
     dinheiro,
-    registrar_historico,
     saldo_usuario,
-    saldo_pendente
+    saldo_pendente,
+    saque_pendente,
+    buscar_pix,
+    registrar_historico
 )
 
+from config import (
+    VALOR_INDICACAO,
+    VALOR_MINIMO_SAQUE
+)
+
+from antifraude import usuario_banido
+
+
+# ==========================================
+# CADASTRAR USUÁRIO
+# ==========================================
 
 def cadastrar_usuario(message):
 
@@ -22,7 +37,9 @@ def cadastrar_usuario(message):
         (user_id,)
     )
 
-    if cursor.fetchone() is None:
+    usuario = cursor.fetchone()
+
+    if usuario is None:
 
         cursor.execute(
             """
@@ -33,6 +50,7 @@ def cadastrar_usuario(message):
                 username,
                 saldo,
                 saldo_pendente,
+                saque_pendente,
                 pix,
                 banido,
                 data_cadastro,
@@ -40,127 +58,491 @@ def cadastrar_usuario(message):
             )
 
             VALUES
-            (?, ?, ?, 0, 0, '', 0, ?, ?)
+
+            (?, ?, ?, 0, 0, 0, '', 0, ?, ?)
+
             """,
+
             (
+
                 user_id,
+
                 nome,
+
                 username,
+
                 data_atual(),
+
                 data_atual()
+
             )
+
         )
 
         conn.commit()
 
         registrar_historico(
+
             user_id,
+
             "CADASTRO",
+
             "Usuário cadastrado"
+
         )
 
     else:
 
         cursor.execute(
+
             """
             UPDATE usuarios
+
             SET
 
             nome=?,
+
             username=?,
+
             ultimo_acesso=?
 
             WHERE id=?
+
             """,
+
             (
+
                 nome,
+
                 username,
+
                 data_atual(),
+
                 user_id
+
             )
+
         )
 
         conn.commit()
 
+# ==========================================
+# PERFIL
+# ==========================================
+
+def perfil_usuario(user_id):
+
+    cursor.execute(
+        """
+        SELECT
+
+        nome,
+
+        username,
+
+        pix,
+
+        data_cadastro
+
+        FROM usuarios
+
+        WHERE id=?
+
+        """,
+
+        (user_id,)
+
+    )
+
+    return cursor.fetchone()
+
+# ==========================================
+# REGISTRAR
+# ==========================================
 
 def registrar(bot):
 
     @bot.message_handler(func=lambda m: m.text == "👤 Perfil")
     def perfil(message):
 
-        cadastrar_usuario(message)
+        if usuario_banido(message.from_user.id):
 
-        cursor.execute(
-            """
-            SELECT
-            nome,
-            username,
-            pix,
-            data_cadastro
+            bot.send_message(
 
-            FROM usuarios
+                message.chat.id,
 
-            WHERE id=?
-            """,
-            (message.from_user.id,)
+                "❌ Você está bloqueado."
+
+            )
+
+            return
+
+        dados = perfil_usuario(
+
+            message.from_user.id
+
         )
 
-        usuario = cursor.fetchone()
-
         texto = f"""
-👤 <b>PERFIL</b>
+👤 <b>SEU PERFIL</b>
 
-🆔 ID: <code>{message.from_user.id}</code>
+🆔 ID:
+
+<code>{message.from_user.id}</code>
 
 👤 Nome:
-{usuario[0]}
+
+{dados[0]}
 
 📱 Username:
-@{usuario[1] if usuario[1] else "Sem username"}
+
+@{dados[1] if dados[1] else 'Sem username'}
 
 💰 Saldo:
+
 {dinheiro(saldo_usuario(message.from_user.id))}
 
 ⏳ Saldo pendente:
+
 {dinheiro(saldo_pendente(message.from_user.id))}
+
+💸 Saque pendente:
+
+{dinheiro(saque_pendente(message.from_user.id))}
 
 💳 PIX:
 
-{usuario[2] if usuario[2] else "Não cadastrada"}
+{dados[2] if dados[2] else 'Não cadastrada'}
 
 📅 Cadastro:
 
-{usuario[3]}
+{dados[3]}
 """
 
         bot.send_message(
+
             message.chat.id,
+
             texto,
+
             parse_mode="HTML"
+
         )
 
+# ==========================================
+# SALDO
+# ==========================================
 
     @bot.message_handler(func=lambda m: m.text == "💰 Saldo")
     def saldo(message):
+
+        if usuario_banido(message.from_user.id):
+
+            bot.send_message(
+                message.chat.id,
+                "❌ Você está bloqueado."
+            )
+
+            return
+
+        disponivel = saldo_usuario(message.from_user.id)
+        pendente = saldo_pendente(message.from_user.id)
+        saque = saque_pendente(message.from_user.id)
 
         bot.send_message(
 
             message.chat.id,
 
             f"""
-
 💰 <b>SEU SALDO</b>
 
-Disponível:
+━━━━━━━━━━━━━━
 
-{dinheiro(saldo_usuario(message.from_user.id))}
+💵 Disponível:
 
-Pendente:
+{dinheiro(disponivel)}
 
-{dinheiro(saldo_pendente(message.from_user.id))}
+━━━━━━━━━━━━━━
+
+⏳ Pendente:
+
+{dinheiro(pendente)}
+
+━━━━━━━━━━━━━━
+
+💸 Em saque:
+
+{dinheiro(saque)}
+""",
+
+            parse_mode="HTML"
+
+        )
+
+
+# ==========================================
+# HISTÓRICO
+# ==========================================
+
+    @bot.message_handler(func=lambda m: m.text == "📜 Histórico")
+    def historico(message):
+
+        cursor.execute(
+
+            """
+            SELECT
+
+            tipo,
+
+            descricao,
+
+            valor,
+
+            data
+
+            FROM historico
+
+            WHERE usuario_id=?
+
+            ORDER BY id DESC
+
+            LIMIT 15
 
             """,
 
+            (message.from_user.id,)
+
+        )
+
+        registros = cursor.fetchall()
+
+        if not registros:
+
+            bot.send_message(
+
+                message.chat.id,
+
+                "📭 Você ainda não possui histórico."
+
+            )
+
+            return
+
+        texto = "📜 <b>ÚLTIMAS MOVIMENTAÇÕES</b>\n\n"
+
+        for tipo, descricao, valor, data in registros:
+
+            texto += (
+                f"📌 <b>{tipo}</b>\n"
+                f"{descricao}\n"
+                f"💰 {dinheiro(valor)}\n"
+                f"📅 {data}\n\n"
+            )
+
+        bot.send_message(
+
+            message.chat.id,
+
+            texto,
+
             parse_mode="HTML"
+
+        )
+
+
+# ==========================================
+# REGRAS
+# ==========================================
+
+    @bot.message_handler(func=lambda m: m.text == "📖 Regras")
+    def regras(message):
+
+        bot.send_message(
+
+            message.chat.id,
+
+            f"""
+📖 <b>REGRAS</b>
+
+• Convide amigos utilizando seu link.
+
+• O amigo deve entrar no grupo.
+
+• A indicação ficará pendente.
+
+• O administrador analisará a indicação.
+
+• Após aprovada, o saldo ficará disponível.
+
+• Valor por indicação:
+dinheiro(VALOR_INDICACAO)
+
+• Saque mínimo:
+dinheiro(VALOR_MINIMO_SAQUE)
+
+Fraudes resultam em banimento.
+""",
+
+            parse_mode="HTML"
+
+        )
+
+
+# ==========================================
+# INFORMAÇÕES
+# ==========================================
+
+    @bot.message_handler(func=lambda m: m.text == "ℹ️ Informações")
+    def informacoes(message):
+
+        bot.send_message(
+
+            message.chat.id,
+
+            """
+ℹ️ <b>INFORMAÇÕES</b>
+
+Este bot recompensa usuários que convidam novos membros para o grupo.
+
+Caso tenha dúvidas, utilize o menu:
+
+🎫 Suporte
+
+Nossa equipe responderá o mais rápido possível.
+""",
+
+            parse_mode="HTML"
+
+        )
+
+from indicacoes import (
+    gerar_link,
+    indicacoes_usuario
+)
+
+# ==========================================
+# MEU LINK
+# ==========================================
+
+    @bot.message_handler(func=lambda m: m.text == "🔗 Meu Link")
+    def meu_link(message):
+
+        if usuario_banido(message.from_user.id):
+
+            bot.send_message(
+                message.chat.id,
+                "❌ Você está bloqueado."
+            )
+
+            return
+
+        link = gerar_link(message.from_user.id)
+
+        bot.send_message(
+
+            message.chat.id,
+
+            f"""
+🔗 <b>SEU LINK DE CONVITE</b>
+
+Compartilhe o link abaixo com seus amigos.
+
+<code>{link}</code>
+
+Você receberá sua recompensa quando:
+
+✅ O usuário entrar no grupo.
+
+✅ O administrador aprovar a indicação.
+""",
+
+            parse_mode="HTML"
+
+        )
+
+
+# ==========================================
+# MINHAS INDICAÇÕES
+# ==========================================
+
+    @bot.message_handler(func=lambda m: m.text == "👥 Minhas Indicações")
+    def minhas_indicacoes(message):
+
+        lista = indicacoes_usuario(
+            message.from_user.id
+        )
+
+        if not lista:
+
+            bot.send_message(
+
+                message.chat.id,
+
+                """
+👥 Você ainda não possui indicações.
+"""
+
+            )
+
+            return
+
+        texto = "👥 <b>SUAS INDICAÇÕES</b>\n\n"
+
+        for indicado, valor, status, grupo, data in lista:
+
+            grupo = "✅ Sim" if grupo else "❌ Não"
+
+            texto += f"""
+━━━━━━━━━━━━━━
+
+👤 ID:
+
+<code>{indicado}</code>
+
+💰 Valor:
+
+{dinheiro(valor)}
+
+📌 Status:
+
+{status}
+
+👥 Grupo:
+
+{grupo}
+
+📅 Data:
+
+{data}
+
+"""
+
+        bot.send_message(
+
+            message.chat.id,
+
+            texto,
+
+            parse_mode="HTML"
+
+        )
+
+
+# ==========================================
+# MENU
+# ==========================================
+
+    @bot.message_handler(commands=["menu"])
+    def menu(message):
+
+        bot.send_message(
+
+            message.chat.id,
+
+            """
+🏠 Menu Principal
+""",
+
+            reply_markup=menu_principal()
 
         )
