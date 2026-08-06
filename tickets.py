@@ -19,6 +19,8 @@ def registrar(bot):
 
     estados = {}
 
+respostas = {}
+    
     # ==========================================
     # ABRIR SUPORTE
     # ==========================================
@@ -172,11 +174,27 @@ Envie todos os detalhes para facilitar o atendimento.
 
         try:
 
-            bot.send_message(
+            markup = types.InlineKeyboardMarkup()
 
-                ADMIN_ID,
+markup.row(
 
-                f"""
+    types.InlineKeyboardButton(
+        "✉️ Responder",
+        callback_data=f"ticket_resp_{user_id}"
+    ),
+
+    types.InlineKeyboardButton(
+        "❌ Fechar",
+        callback_data=f"ticket_close_{user_id}"
+    )
+
+)
+
+bot.send_message(
+
+    ADMIN_ID,
+
+    f"""
 🎫 <b>NOVO TICKET</b>
 
 👤 Usuário:
@@ -187,9 +205,176 @@ Envie todos os detalhes para facilitar o atendimento.
 {mensagem}
 """,
 
-                parse_mode="HTML"
+    parse_mode="HTML",
+
+    reply_markup=markup
+
+)
+
+        except:
+            pass
+
+    # ==========================================
+    # RESPONDER TICKET
+    # ==========================================
+
+    @bot.callback_query_handler(func=lambda c: c.data.startswith("ticket_resp_"))
+    def responder_ticket(call):
+
+        user_id = int(call.data.split("_")[-1])
+
+        respostas[call.from_user.id] = user_id
+
+        bot.answer_callback_query(call.id)
+
+        bot.send_message(
+
+            call.message.chat.id,
+
+            f"""
+✍️ Digite a resposta para o usuário.
+
+ID:
+<code>{user_id}</code>
+""",
+
+            parse_mode="HTML"
+
+        )
+
+    # ==========================================
+    # RECEBER RESPOSTA
+    # ==========================================
+
+    @bot.message_handler(
+        func=lambda m: m.from_user.id in respostas
+    )
+    def receber_resposta(message):
+
+        admin_id = message.from_user.id
+
+        if admin_id != ADMIN_ID:
+            return
+
+        usuario_id = respostas.pop(admin_id)
+
+        resposta = message.text.strip()
+
+        cursor.execute(
+            """
+            UPDATE tickets
+            SET
+                resposta=?,
+                status='RESPONDIDO',
+                admin_id=?,
+                data_resposta=?
+            WHERE usuario_id=?
+            AND status=?
+            """,
+            (
+                resposta,
+                admin_id,
+                data_atual(),
+                usuario_id,
+                STATUS_ABERTO
+            )
+        )
+
+        conn.commit()
+
+        bot.send_message(
+
+            usuario_id,
+
+            f"""
+📩 <b>Resposta do Suporte</b>
+
+{resposta}
+""",
+
+            parse_mode="HTML"
+
+        )
+
+        bot.send_message(
+
+            admin_id,
+
+            "✅ Resposta enviada ao usuário."
+
+        )
+
+    # ==========================================
+    # FECHAR TICKET
+    # ==========================================
+
+    @bot.callback_query_handler(func=lambda c: c.data.startswith("ticket_close_"))
+    def fechar_ticket(call):
+
+        if call.from_user.id != ADMIN_ID:
+
+            bot.answer_callback_query(
+                call.id,
+                "Sem permissão."
+            )
+
+            return
+
+        usuario_id = int(
+            call.data.split("_")[-1]
+        )
+
+        cursor.execute(
+            """
+            UPDATE tickets
+            SET
+                status='FECHADO',
+                admin_id=?,
+                fechado_em=?
+            WHERE usuario_id=?
+            AND status IN ('ABERTO','RESPONDIDO')
+            """,
+            (
+                ADMIN_ID,
+                data_atual(),
+                usuario_id
+            )
+        )
+
+        conn.commit()
+
+        bot.answer_callback_query(
+            call.id,
+            "✅ Ticket fechado."
+        )
+
+        try:
+
+            bot.send_message(
+
+                usuario_id,
+
+                """
+📩 Seu atendimento foi finalizado.
+
+Caso precise de ajuda novamente,
+basta abrir um novo ticket.
+"""
 
             )
 
         except:
             pass
+
+        try:
+
+            bot.edit_message_reply_markup(
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                reply_markup=None
+            )
+
+        except:
+            pass
+
+            
