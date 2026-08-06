@@ -461,11 +461,11 @@ Convide seus amigos usando o link abaixo:
             parse_mode="HTML"
         )
 
-# ==========================================
-# MINHAS INDICAÇÕES
-# ==========================================
+    # ==========================================
+    # MINHAS INDICAÇÕES
+    # ==========================================
 
-@bot.message_handler(func=lambda m: m.text == "👥 Minhas Indicações")
+    @bot.message_handler(func=lambda m: m.text == "👥 Minhas Indicações")
     def minhas_indicacoes(message):
 
         lista = indicacoes_usuario(
