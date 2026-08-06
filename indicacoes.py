@@ -315,3 +315,69 @@ def rejeitar_indicacao(indicacao_id, admin_id, motivo):
     )
 
     return True, indicador_id
+
+# =====================================================
+# LINKS DE CONVITE
+# =====================================================
+
+def buscar_link_convite(usuario_id):
+
+    cursor.execute(
+        """
+        SELECT invite_link
+        FROM links_convite
+        WHERE usuario_id=?
+        AND ativo=1
+        """,
+        (usuario_id,)
+    )
+
+    resultado = cursor.fetchone()
+
+    if resultado:
+        return resultado[0]
+
+    return None
+
+
+def salvar_link_convite(usuario_id, invite_link):
+
+    cursor.execute(
+        """
+        INSERT INTO links_convite
+        (
+            usuario_id,
+            invite_link,
+            data_criacao
+        )
+        VALUES
+        (?, ?, ?)
+        """,
+        (
+            usuario_id,
+            invite_link,
+            data_atual()
+        )
+    )
+
+    conn.commit()
+
+
+def buscar_dono_convite(invite_link):
+
+    cursor.execute(
+        """
+        SELECT usuario_id
+        FROM links_convite
+        WHERE invite_link=?
+        AND ativo=1
+        """,
+        (invite_link,)
+    )
+
+    resultado = cursor.fetchone()
+
+    if resultado:
+        return resultado[0]
+
+    return None
