@@ -1,6 +1,8 @@
 import telebot
 
-from config import TOKEN
+from config import TOKEN, GRUPO_LINK
+
+from telebot import types
 
 from teclado import menu_principal
 
@@ -80,23 +82,41 @@ def start(message):
             message.from_user.id
         )
 
-    bot.send_message(
+    markup = types.InlineKeyboardMarkup()
 
-        message.chat.id,
+markup.add(
+    types.InlineKeyboardButton(
+        "👥 Entrar no Grupo",
+        url=GRUPO_LINK
+    )
+)
 
-        """
+bot.send_message(
+    message.chat.id,
+    """
 🎉 <b>Bem-vindo!</b>
 
 Seu cadastro foi realizado com sucesso.
 
-Agora entre no grupo para validar sua indicação.
+Para validar sua indicação:
 
-Depois utilize o menu abaixo.
+1️⃣ Entre no grupo.
+
+2️⃣ Depois volte ao bot.
+
+3️⃣ O administrador analisará sua indicação.
+
+Após a aprovação, o saldo será liberado.
 """,
+    reply_markup=markup,
+    parse_mode="HTML"
+)
 
-        reply_markup=menu_principal()
-
-    )
+bot.send_message(
+    message.chat.id,
+    "🏠 Menu Principal",
+    reply_markup=menu_principal()
+)
 
 # ==========================================
 # NOVO MEMBRO NO GRUPO
