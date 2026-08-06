@@ -18,8 +18,7 @@ from antifraude import usuario_banido
 def registrar(bot):
 
     estados = {}
-
-respostas = {}
+    respostas = {}
     
     # ==========================================
     # ABRIR SUPORTE
@@ -174,27 +173,27 @@ Envie todos os detalhes para facilitar o atendimento.
 
         try:
 
-            markup = types.InlineKeyboardMarkup()
+    markup = types.InlineKeyboardMarkup()
 
-markup.row(
+    markup.row(
 
-    types.InlineKeyboardButton(
-        "✉️ Responder",
-        callback_data=f"ticket_resp_{user_id}"
-    ),
+        types.InlineKeyboardButton(
+            "✉️ Responder",
+            callback_data=f"ticket_resp_{user_id}"
+        ),
 
-    types.InlineKeyboardButton(
-        "❌ Fechar",
-        callback_data=f"ticket_close_{user_id}"
+        types.InlineKeyboardButton(
+            "❌ Fechar",
+            callback_data=f"ticket_close_{user_id}"
+        )
+
     )
 
-)
+    bot.send_message(
 
-bot.send_message(
+        ADMIN_ID,
 
-    ADMIN_ID,
-
-    f"""
+        f"""
 🎫 <b>NOVO TICKET</b>
 
 👤 Usuário:
@@ -205,14 +204,14 @@ bot.send_message(
 {mensagem}
 """,
 
-    parse_mode="HTML",
+        parse_mode="HTML",
 
-    reply_markup=markup
+        reply_markup=markup
 
-)
+    )
 
-        except:
-            pass
+except:
+    pass
 
     # ==========================================
     # RESPONDER TICKET
