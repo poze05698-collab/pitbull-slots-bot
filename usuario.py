@@ -23,6 +23,8 @@ from antifraude import usuario_banido
 
 from indicacoes import (
     gerar_link,
+    buscar_link_convite,
+    salvar_link_convite,
     indicacoes_usuario
 )
 
@@ -425,40 +427,43 @@ Nossa equipe responderá o mais rápido possível.
 # ==========================================
 
     @bot.message_handler(func=lambda m: m.text == "🔗 Meu Link")
-    def meu_link(message):
+def meu_link(message):
 
-        if usuario_banido(message.from_user.id):
-
-            bot.send_message(
-                message.chat.id,
-                "❌ Você está bloqueado."
-            )
-
-            return
-
-        link = gerar_link(message.from_user.id)
+    if usuario_banido(message.from_user.id):
 
         bot.send_message(
-
             message.chat.id,
+            "❌ Você está bloqueado."
+        )
 
-            f"""
+        return
+
+    link = buscar_link_convite(message.from_user.id)
+
+    if link is None:
+
+        bot.send_message(
+            message.chat.id,
+            "⏳ Seu link de convite ainda não foi criado.\n\n"
+            "Na próxima etapa vamos integrar a criação automática "
+            "do convite pelo Telegram."
+        )
+
+        return
+
+    bot.send_message(
+        message.chat.id,
+        f"""
 🔗 <b>SEU LINK DE CONVITE</b>
 
-Compartilhe o link abaixo com seus amigos.
+Compartilhe este link com seus amigos.
 
 <code>{link}</code>
 
-Você receberá sua recompensa quando:
-
-✅ O usuário entrar no grupo.
-
-✅ O administrador aprovar a indicação.
+Sua indicação ficará pendente até a aprovação do administrador.
 """,
-
-            parse_mode="HTML"
-
-        )
+        parse_mode="HTML"
+    )
 
 
 # ==========================================
