@@ -17,8 +17,13 @@ from utils import (
     saldo_usuario,
     saque_pendente,
     adicionar_saque_pendente,
+    remover_saque_pendente,
+    remover_saldo,
     registrar_historico
 )
+
+from antifraude import usuario_banido
+
 
 # ==========================================
 # ESTADOS
@@ -27,6 +32,7 @@ from utils import (
 aguardando_pix = {}
 
 aguardando_valor = {}
+
 
 # ==========================================
 # REGISTRAR
@@ -42,6 +48,18 @@ def registrar(bot):
     def cadastrar_pix(message):
 
         user_id = message.from_user.id
+
+        if usuario_banido(user_id):
+
+            bot.send_message(
+
+                message.chat.id,
+
+                "❌ Sua conta está bloqueada."
+
+            )
+
+            return
 
         pix = buscar_pix(user_id)
 
@@ -89,6 +107,7 @@ Pode ser:
 
         aguardando_pix[user_id] = True
 
+
     # ==========================================
     # RECEBER PIX
     # ==========================================
@@ -98,41 +117,54 @@ Pode ser:
 
         user_id = message.from_user.id
 
-        chave = message.text.strip()
+        if usuario_banido(user_id):
 
-        cursor.execute(
+            aguardando_pix.pop(user_id, None)
 
-            """
-            UPDATE usuarios
+            bot.send_message(
 
-            SET pix=?
+                message.chat.id,
 
-            WHERE id=?
-
-            """,
-
-            (
-
-                chave,
-
-                user_id
+                "❌ Sua conta está bloqueada."
 
             )
 
+            return
+
+        chave = message.text.strip()
+
+        if len(chave) < 5:
+
+            bot.send_message(
+
+                message.chat.id,
+
+                "❌ Chave PIX inválida."
+
+            )
+
+            return
+
+        cursor.execute(
+            """
+            UPDATE usuarios
+            SET pix=?
+            WHERE id=?
+            """,
+            (
+                chave,
+                user_id
+            )
         )
 
         conn.commit()
 
-        aguardando_pix.pop(user_id)
+        aguardando_pix.pop(user_id, None)
 
         registrar_historico(
-
             user_id,
-
             "PIX",
-
             "Chave PIX cadastrada"
-
         )
 
         bot.send_message(
@@ -151,6 +183,7 @@ Sua chave:
 
         )
 
+
     # ==========================================
     # SOLICITAR SAQUE
     # ==========================================
@@ -159,6 +192,18 @@ Sua chave:
     def solicitar_saque(message):
 
         user_id = message.from_user.id
+
+        if usuario_banido(user_id):
+
+            bot.send_message(
+
+                message.chat.id,
+
+                "❌ Sua conta está bloqueada."
+
+            )
+
+            return
 
         pix = buscar_pix(user_id)
 
@@ -222,14 +267,29 @@ Digite o valor que deseja sacar.
 
         )
 
+
     # ==========================================
-    # RECEBER VALOR DO SAQUE
+    # RECEBER VALOR
     # ==========================================
 
     @bot.message_handler(func=lambda m: m.from_user.id in aguardando_valor)
     def receber_valor(message):
 
         user_id = message.from_user.id
+
+        if usuario_banido(user_id):
+
+            aguardando_valor.pop(user_id, None)
+
+            bot.send_message(
+
+                message.chat.id,
+
+                "❌ Sua conta está bloqueada."
+
+            )
+
+            return
 
         try:
 
@@ -262,11 +322,9 @@ Digite o valor que deseja sacar.
                 message.chat.id,
 
                 f"""
-
 ❌ O valor mínimo para saque é
 
 {dinheiro(VALOR_MINIMO_SAQUE)}
-
 """
 
             )
@@ -280,13 +338,11 @@ Digite o valor que deseja sacar.
                 message.chat.id,
 
                 f"""
-
 ❌ Você possui apenas
 
 {dinheiro(disponivel)}
 
 disponíveis.
-
 """
 
             )
@@ -333,7 +389,6 @@ disponíveis.
 <code>{pix}</code>
 
 Deseja confirmar?
-
 """,
 
             parse_mode="HTML",
@@ -342,8 +397,7 @@ Deseja confirmar?
 
         )
 
-        aguardando_valor.pop(user_id)
-
+        aguardando_valor.pop(user_id, None)
 
     # ==========================================
     # CONFIRMAR SAQUE
@@ -356,6 +410,16 @@ Deseja confirmar?
 
         user_id = call.from_user.id
 
+        if usuario_banido(user_id):
+
+            bot.answer_callback_query(
+                call.id,
+                "Sua conta está bloqueada.",
+                show_alert=True
+            )
+
+            return
+
         valor = float(call.data.split(":")[1])
 
         pix = buscar_pix(user_id)
@@ -365,23 +429,14 @@ Deseja confirmar?
             """
             INSERT INTO saques
             (
-
                 usuario_id,
-
                 valor,
-
                 pix,
-
                 status,
-
                 motivo_rejeicao,
-
                 admin_id,
-
                 data,
-
                 data_aprovacao
-
             )
 
             VALUES
@@ -405,6 +460,8 @@ Deseja confirmar?
             )
 
         )
+
+        saque_id = cursor.lastrowid
 
         conn.commit()
 
@@ -450,11 +507,8 @@ Agora aguarde a aprovação do administrador.
 
             """
             SELECT nome
-
             FROM usuarios
-
             WHERE id=?
-
             """,
 
             (user_id,)
@@ -481,6 +535,10 @@ Agora aguarde a aprovação do administrador.
 💰 Valor:
 
 {dinheiro(valor)}
+
+💳 PIX:
+
+<code>{pix}</code>
 
 Utilize o painel administrativo para aprovar ou rejeitar este saque.
 """,
@@ -513,175 +571,150 @@ Utilize o painel administrativo para aprovar ou rejeitar este saque.
 
         bot.answer_callback_query(call.id)
 
-        # ==========================================
-    # APROVAR SAQUE
-    # ==========================================
+# ==========================================
+# APROVAR SAQUE
+# ==========================================
 
-    def aprovar_saque(saque_id, admin_id):
+def aprovar_saque(saque_id, admin_id):
 
-        cursor.execute(
-            """
-            SELECT usuario_id, valor, status
-            FROM saques
-            WHERE id=?
-            """,
-            (saque_id,)
+    cursor.execute(
+        """
+        SELECT usuario_id, valor, status
+        FROM saques
+        WHERE id=?
+        """,
+        (saque_id,)
+    )
+
+    saque = cursor.fetchone()
+
+    if saque is None:
+        return False, "Saque não encontrado."
+
+    usuario_id, valor, status = saque
+
+    if status != STATUS_PENDENTE:
+        return False, "Este saque já foi processado."
+
+    cursor.execute(
+        """
+        UPDATE saques
+        SET
+            status=?,
+            admin_id=?,
+            data_aprovacao=?
+        WHERE id=?
+        """,
+        (
+            STATUS_APROVADO,
+            admin_id,
+            data_atual(),
+            saque_id
         )
+    )
 
-        saque = cursor.fetchone()
+    conn.commit()
 
-        if saque is None:
-            return False, "Saque não encontrado."
+    remover_saque_pendente(
+        usuario_id,
+        valor
+    )
 
-        usuario_id, valor, status = saque
+    remover_saldo(
+        usuario_id,
+        valor
+    )
 
-        if status != STATUS_PENDENTE:
-            return False, "Este saque já foi processado."
+    registrar_historico(
+        usuario_id,
+        "SAQUE",
+        "Saque aprovado",
+        valor
+    )
 
-        cursor.execute(
-            """
-            UPDATE saques
-            SET
-                status=?,
-                admin_id=?,
-                data_aprovacao=?
-            WHERE id=?
-            """,
-            (
-                STATUS_APROVADO,
-                admin_id,
-                data_atual(),
-                saque_id
-            )
+    return True, usuario_id
+
+
+# ==========================================
+# REJEITAR SAQUE
+# ==========================================
+
+def rejeitar_saque(saque_id, admin_id, motivo):
+
+    cursor.execute(
+        """
+        SELECT usuario_id, valor, status
+        FROM saques
+        WHERE id=?
+        """,
+        (saque_id,)
+    )
+
+    saque = cursor.fetchone()
+
+    if saque is None:
+        return False, "Saque não encontrado."
+
+    usuario_id, valor, status = saque
+
+    if status != STATUS_PENDENTE:
+        return False, "Este saque já foi processado."
+
+    cursor.execute(
+        """
+        UPDATE saques
+        SET
+            status=?,
+            motivo_rejeicao=?,
+            admin_id=?,
+            data_aprovacao=?
+        WHERE id=?
+        """,
+        (
+            STATUS_REJEITADO,
+            motivo,
+            admin_id,
+            data_atual(),
+            saque_id
         )
+    )
 
-        conn.commit()
+    conn.commit()
 
-        remover_saque_pendente(
+    remover_saque_pendente(
+        usuario_id,
+        valor
+    )
+
+    registrar_historico(
+        usuario_id,
+        "SAQUE",
+        f"Saque rejeitado: {motivo}",
+        valor
+    )
+
+    return True, usuario_id
+
+
+# ==========================================
+# LISTAR SAQUES PENDENTES
+# ==========================================
+
+def listar_saques_pendentes():
+
+    cursor.execute(
+        """
+        SELECT
+            id,
             usuario_id,
-            valor
-        )
+            valor,
+            pix,
+            data
+        FROM saques
+        WHERE status=?
+        ORDER BY id
+        """,
+        (STATUS_PENDENTE,)
+    )
 
-        remover_saldo(
-            usuario_id,
-            valor
-        )
-
-        registrar_historico(
-
-            usuario_id,
-
-            "SAQUE",
-
-            "Saque aprovado",
-
-            valor
-
-        )
-
-        return True, usuario_id
-
-
-    # ==========================================
-    # REJEITAR SAQUE
-    # ==========================================
-
-    def rejeitar_saque(saque_id, admin_id, motivo):
-
-        cursor.execute(
-            """
-            SELECT usuario_id, valor, status
-            FROM saques
-            WHERE id=?
-            """,
-            (saque_id,)
-        )
-
-        saque = cursor.fetchone()
-
-        if saque is None:
-            return False, "Saque não encontrado."
-
-        usuario_id, valor, status = saque
-
-        if status != STATUS_PENDENTE:
-            return False, "Este saque já foi processado."
-
-        cursor.execute(
-            """
-            UPDATE saques
-            SET
-
-                status=?,
-
-                motivo_rejeicao=?,
-
-                admin_id=?,
-
-                data_aprovacao=?
-
-            WHERE id=?
-            """,
-            (
-
-                STATUS_REJEITADO,
-
-                motivo,
-
-                admin_id,
-
-                data_atual(),
-
-                saque_id
-
-            )
-
-        )
-
-        conn.commit()
-
-        remover_saque_pendente(
-
-            usuario_id,
-
-            valor
-
-        )
-
-        registrar_historico(
-
-            usuario_id,
-
-            "SAQUE",
-
-            f"Saque rejeitado: {motivo}",
-
-            valor
-
-        )
-
-        return True, usuario_id
-
-
-    # ==========================================
-    # LISTAR SAQUES PENDENTES
-    # ==========================================
-
-    def listar_saques_pendentes():
-
-        cursor.execute(
-            """
-            SELECT
-                id,
-                usuario_id,
-                valor,
-                pix,
-                data
-            FROM saques
-            WHERE status=?
-            ORDER BY id
-            """,
-            (STATUS_PENDENTE,)
-        )
-
-        return cursor.fetchall()
+    return cursor.fetchall()
