@@ -21,6 +21,11 @@ from config import (
 
 from antifraude import usuario_banido
 
+from indicacoes import (
+    gerar_link,
+    indicacoes_usuario
+)
+
 
 # ==========================================
 # CADASTRAR USUÁRIO
@@ -414,11 +419,6 @@ Nossa equipe responderá o mais rápido possível.
             parse_mode="HTML"
 
         )
-
-from indicacoes import (
-    gerar_link,
-    indicacoes_usuario
-)
 
 # ==========================================
 # MEU LINK
