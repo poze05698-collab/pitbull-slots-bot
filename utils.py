@@ -8,9 +8,13 @@ from config import ADMIN_ID
 # DATA E HORA
 # ==========================================
 
-def data_atual():
-    return datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-
+from utils import (
+    registrar_historico,
+    saldo_usuario,
+    saque_pendente,
+    dinheiro,
+    data_atual
+)
 
 # ==========================================
 # FORMATAR DINHEIRO
