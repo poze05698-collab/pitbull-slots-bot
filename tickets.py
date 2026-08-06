@@ -2,10 +2,6 @@ from database import cursor, conn
 from utils import data_atual, registrar_historico
 
 
-# ==========================================
-# ABRIR TICKET
-# ==========================================
-
 def abrir_ticket(usuario_id, assunto, mensagem):
 
     cursor.execute(
@@ -13,6 +9,7 @@ def abrir_ticket(usuario_id, assunto, mensagem):
         INSERT INTO tickets
         (
             usuario_id,
+            assunto,
             mensagem,
             resposta,
             status,
@@ -20,10 +17,11 @@ def abrir_ticket(usuario_id, assunto, mensagem):
             data,
             data_resposta
         )
-        VALUES (?, ?, '', 'ABERTO', NULL, ?, NULL)
+        VALUES (?, ?, ?, '', 'ABERTO', NULL, ?, NULL)
         """,
         (
             usuario_id,
+            assunto,
             mensagem,
             data_atual()
         )
@@ -34,7 +32,7 @@ def abrir_ticket(usuario_id, assunto, mensagem):
     registrar_historico(
         usuario_id,
         "TICKET",
-        "Ticket aberto"
+        f"Ticket aberto: {assunto}"
     )
 
     return cursor.lastrowid
