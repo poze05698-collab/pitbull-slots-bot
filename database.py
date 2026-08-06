@@ -1,10 +1,14 @@
 import sqlite3
 
 # ==========================================
-# CONEXÃO COM O BANCO
+# CONEXÃO
 # ==========================================
 
-conn = sqlite3.connect("database.db", check_same_thread=False)
+conn = sqlite3.connect(
+    "database.db",
+    check_same_thread=False
+)
+
 cursor = conn.cursor()
 
 # ==========================================
@@ -35,6 +39,7 @@ CREATE TABLE IF NOT EXISTS usuarios(
     ultimo_acesso TEXT
 
 )
+""")
 
 # ==========================================
 # INDICAÇÕES
@@ -45,19 +50,27 @@ CREATE TABLE IF NOT EXISTS indicacoes(
 
     id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-    indicador_id INTEGER,
+    indicador_id INTEGER NOT NULL,
 
-    indicado_id INTEGER,
+    indicado_id INTEGER NOT NULL UNIQUE,
 
-    valor REAL,
+    valor REAL NOT NULL,
 
-    status TEXT,
+    status TEXT NOT NULL,
+
+    grupo_confirmado INTEGER DEFAULT 0,
 
     admin_id INTEGER,
 
     data TEXT,
 
-    data_aprovacao TEXT
+    data_aprovacao TEXT,
+
+    FOREIGN KEY(indicador_id)
+        REFERENCES usuarios(id),
+
+    FOREIGN KEY(indicado_id)
+        REFERENCES usuarios(id)
 
 )
 """)
@@ -71,19 +84,24 @@ CREATE TABLE IF NOT EXISTS saques(
 
     id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-    usuario_id INTEGER,
+    usuario_id INTEGER NOT NULL,
 
-    valor REAL,
+    valor REAL NOT NULL,
 
-    pix TEXT,
+    pix TEXT NOT NULL,
 
-    status TEXT,
+    status TEXT NOT NULL,
+
+    motivo_rejeicao TEXT,
 
     admin_id INTEGER,
 
     data TEXT,
 
-    data_aprovacao TEXT
+    data_aprovacao TEXT,
+
+    FOREIGN KEY(usuario_id)
+        REFERENCES usuarios(id)
 
 )
 """)
@@ -97,21 +115,26 @@ CREATE TABLE IF NOT EXISTS tickets(
 
     id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-    usuario_id INTEGER,
+    usuario_id INTEGER NOT NULL,
 
-    assunto TEXT,
+    assunto TEXT NOT NULL,
 
-    mensagem TEXT,
+    mensagem TEXT NOT NULL,
 
     resposta TEXT,
 
-    status TEXT,
+    status TEXT NOT NULL,
 
     admin_id INTEGER,
 
     data TEXT,
 
-    data_resposta TEXT
+    data_resposta TEXT,
+
+    fechado_em TEXT,
+
+    FOREIGN KEY(usuario_id)
+        REFERENCES usuarios(id)
 
 )
 """)
@@ -125,15 +148,18 @@ CREATE TABLE IF NOT EXISTS historico(
 
     id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-    usuario_id INTEGER,
+    usuario_id INTEGER NOT NULL,
 
-    tipo TEXT,
+    tipo TEXT NOT NULL,
 
-    descricao TEXT,
+    descricao TEXT NOT NULL,
 
-    valor REAL,
+    valor REAL DEFAULT 0,
 
-    data TEXT
+    data TEXT,
+
+    FOREIGN KEY(usuario_id)
+        REFERENCES usuarios(id)
 
 )
 """)
@@ -153,6 +179,8 @@ CREATE TABLE IF NOT EXISTS fraudes(
 
     motivo TEXT,
 
+    acao TEXT,
+
     data TEXT
 
 )
@@ -167,12 +195,10 @@ CREATE TABLE IF NOT EXISTS configuracoes(
 
     chave TEXT PRIMARY KEY,
 
-    valor TEXT
+    valor TEXT NOT NULL
 
 )
 """)
-
-conn.commit()
 
 # ==========================================
 # CONFIGURAÇÕES PADRÃO
