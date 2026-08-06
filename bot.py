@@ -55,6 +55,31 @@ def start(message):
 
     cadastrar_usuario(message)
 
+    indicador_id = None
+
+    if len(message.text.split()) > 1:
+
+        parametro = message.text.split()[1]
+
+        if parametro.startswith("ref_"):
+
+            try:
+
+                indicador_id = int(
+                    parametro.replace("ref_", "")
+                )
+
+            except:
+
+                indicador_id = None
+
+    if indicador_id:
+
+        registrar_indicacao(
+            indicador_id,
+            message.from_user.id
+        )
+
     bot.send_message(
 
         message.chat.id,
@@ -64,7 +89,9 @@ def start(message):
 
 Seu cadastro foi realizado com sucesso.
 
-Use o menu abaixo para navegar pelo bot.
+Agora entre no grupo para validar sua indicação.
+
+Depois utilize o menu abaixo.
 """,
 
         reply_markup=menu_principal()
