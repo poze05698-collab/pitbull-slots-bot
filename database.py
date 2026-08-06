@@ -231,3 +231,30 @@ for chave, valor in configuracoes_padrao.items():
     )
 
 conn.commit()
+
+# =====================================================
+# LINKS DE CONVITE
+# =====================================================
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS links_convite (
+
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    usuario_id INTEGER NOT NULL,
+
+    invite_link TEXT UNIQUE,
+
+    ativo INTEGER DEFAULT 1,
+
+    data_criacao TEXT,
+
+    FOREIGN KEY(usuario_id)
+        REFERENCES usuarios(id)
+
+)
+""")
+
+conn.commit()
+
+
