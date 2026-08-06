@@ -2,7 +2,8 @@ from telebot import types
 
 from config import (
     ADMIN_ID,
-    STATUS_PENDENTE
+    STATUS_PENDENTE,
+    GRUPO_ID
 )
 
 from database import cursor
@@ -27,6 +28,7 @@ from antifraude import (
     banir_usuario,
     desbanir_usuario
 )
+
 
 # ==========================================
 # VERIFICAR ADMIN
@@ -53,11 +55,8 @@ def registrar(bot):
         if not admin_autorizado(message.from_user.id):
 
             bot.reply_to(
-
                 message,
-
                 "❌ Você não possui permissão."
-
             )
 
             return
@@ -132,11 +131,8 @@ Escolha uma opção.
         if not lista:
 
             bot.send_message(
-
                 message.chat.id,
-
                 "✅ Não existem indicações pendentes."
-
             )
 
             return
@@ -148,85 +144,48 @@ Escolha uma opção.
             teclado.row(
 
                 types.InlineKeyboardButton(
-
                     "✅ Aprovar",
-
                     callback_data=f"aprovar_indicacao:{item[0]}"
-
                 ),
 
                 types.InlineKeyboardButton(
-
                     "❌ Rejeitar",
-
                     callback_data=f"rejeitar_indicacao:{item[0]}"
-
                 )
 
             )
 
-            grupo = "Sim" if item[5] else "Não"
+            grupo = "✅ Sim" if item[5] else "❌ Não"
 
             bot.send_message(
 
                 message.chat.id,
 
                 f"""
-🎁 INDICAÇÃO #{item[0]}
+🎁 <b>INDICAÇÃO #{item[0]}</b>
 
 👤 Indicador:
-
 {item[1]}
 
 👤 Indicado:
-
 {item[2]}
 
 💰 Valor:
-
 {dinheiro(item[3])}
 
 👥 Entrou no grupo?
-
 {grupo}
 
 📅 Data:
-
 {item[4]}
 """,
+
+                parse_mode="HTML",
 
                 reply_markup=teclado
 
             )
 
-try:
-
-    membro = bot.get_chat_member(
-        GRUPO_ID,
-        indicado_id
-    )
-
-    if membro.status in (
-        "left",
-        "kicked"
-    ):
-
-        bot.answer_callback_query(
-            call.id,
-            "❌ O usuário ainda não entrou no grupo."
-        )
-
-        return
-
-except Exception:
-
-    bot.answer_callback_query(
-        call.id,
-        "❌ Não foi possível verificar o grupo."
-    )
-
-    return
-    
     # ==========================================
     # APROVAR INDICAÇÃO
     # ==========================================
@@ -239,37 +198,76 @@ except Exception:
         if not admin_autorizado(call.from_user.id):
 
             bot.answer_callback_query(
-
                 call.id,
-
                 "Sem permissão.",
-
                 show_alert=True
-
             )
 
             return
 
         indicacao_id = int(call.data.split(":")[1])
 
+        cursor.execute(
+            """
+            SELECT indicado_id
+            FROM indicacoes
+            WHERE id=?
+            """,
+            (indicacao_id,)
+        )
+
+        resultado = cursor.fetchone()
+
+        if not resultado:
+
+            bot.answer_callback_query(
+                call.id,
+                "Indicação não encontrada.",
+                show_alert=True
+            )
+
+            return
+
+        indicado_id = resultado[0]
+
+        try:
+
+            membro = bot.get_chat_member(
+                GRUPO_ID,
+                indicado_id
+            )
+
+            if membro.status in ("left", "kicked"):
+
+                bot.answer_callback_query(
+                    call.id,
+                    "❌ O usuário ainda não entrou no grupo.",
+                    show_alert=True
+                )
+
+                return
+
+        except Exception:
+
+            bot.answer_callback_query(
+                call.id,
+                "❌ Não foi possível verificar o grupo.",
+                show_alert=True
+            )
+
+            return
+
         sucesso, retorno = aprovar_indicacao(
-
             indicacao_id,
-
             call.from_user.id
-
         )
 
         if not sucesso:
 
             bot.answer_callback_query(
-
                 call.id,
-
                 retorno,
-
                 show_alert=True
-
             )
 
             return
@@ -277,43 +275,31 @@ except Exception:
         usuario_id = retorno
 
         bot.edit_message_reply_markup(
-
             chat_id=call.message.chat.id,
-
             message_id=call.message.message_id,
-
             reply_markup=None
-
         )
 
         bot.send_message(
-
             call.message.chat.id,
-
             "✅ Indicação aprovada com sucesso."
-
         )
 
         try:
 
             bot.send_message(
-
                 usuario_id,
-
                 """
 🎉 Sua indicação foi aprovada!
 
 O valor já está disponível em seu saldo.
 """
-
             )
 
         except:
-
             pass
 
         bot.answer_callback_query(call.id)
-
 
     # ==========================================
     # REJEITAR INDICAÇÃO
@@ -327,13 +313,9 @@ O valor já está disponível em seu saldo.
         if not admin_autorizado(call.from_user.id):
 
             bot.answer_callback_query(
-
                 call.id,
-
                 "Sem permissão.",
-
                 show_alert=True
-
             )
 
             return
@@ -343,25 +325,17 @@ O valor já está disponível em seu saldo.
         motivo = "Rejeitada pelo administrador"
 
         sucesso, retorno = rejeitar_indicacao(
-
             indicacao_id,
-
             call.from_user.id,
-
             motivo
-
         )
 
         if not sucesso:
 
             bot.answer_callback_query(
-
                 call.id,
-
                 retorno,
-
                 show_alert=True
-
             )
 
             return
@@ -369,29 +343,20 @@ O valor já está disponível em seu saldo.
         usuario_id = retorno
 
         bot.edit_message_reply_markup(
-
             chat_id=call.message.chat.id,
-
             message_id=call.message.message_id,
-
             reply_markup=None
-
         )
 
         bot.send_message(
-
             call.message.chat.id,
-
             "❌ Indicação rejeitada."
-
         )
 
         try:
 
             bot.send_message(
-
                 usuario_id,
-
                 f"""
 ❌ Sua indicação foi rejeitada.
 
@@ -399,11 +364,9 @@ Motivo:
 
 {motivo}
 """
-
             )
 
         except:
-
             pass
 
         bot.answer_callback_query(call.id)
@@ -423,11 +386,8 @@ Motivo:
         if not saques:
 
             bot.send_message(
-
                 message.chat.id,
-
                 "✅ Não existem saques pendentes."
-
             )
 
             return
@@ -439,19 +399,13 @@ Motivo:
             teclado.row(
 
                 types.InlineKeyboardButton(
-
                     "✅ Aprovar",
-
                     callback_data=f"aprovar_saque:{saque[0]}"
-
                 ),
 
                 types.InlineKeyboardButton(
-
                     "❌ Rejeitar",
-
                     callback_data=f"rejeitar_saque:{saque[0]}"
-
                 )
 
             )
@@ -486,7 +440,6 @@ Motivo:
 
             )
 
-
     # ==========================================
     # APROVAR SAQUE
     # ==========================================
@@ -499,13 +452,9 @@ Motivo:
         if not admin_autorizado(call.from_user.id):
 
             bot.answer_callback_query(
-
                 call.id,
-
                 "Sem permissão.",
-
                 show_alert=True
-
             )
 
             return
@@ -513,23 +462,16 @@ Motivo:
         saque_id = int(call.data.split(":")[1])
 
         sucesso, retorno = aprovar_saque(
-
             saque_id,
-
             call.from_user.id
-
         )
 
         if not sucesso:
 
             bot.answer_callback_query(
-
                 call.id,
-
                 retorno,
-
                 show_alert=True
-
             )
 
             return
@@ -537,21 +479,14 @@ Motivo:
         usuario_id = retorno
 
         bot.edit_message_reply_markup(
-
             chat_id=call.message.chat.id,
-
             message_id=call.message.message_id,
-
             reply_markup=None
-
         )
 
         bot.send_message(
-
             call.message.chat.id,
-
             "✅ Saque aprovado com sucesso."
-
         )
 
         try:
@@ -569,11 +504,9 @@ Em breve o pagamento será realizado.
             )
 
         except:
-
             pass
 
         bot.answer_callback_query(call.id)
-
 
     # ==========================================
     # REJEITAR SAQUE
@@ -587,13 +520,9 @@ Em breve o pagamento será realizado.
         if not admin_autorizado(call.from_user.id):
 
             bot.answer_callback_query(
-
                 call.id,
-
                 "Sem permissão.",
-
                 show_alert=True
-
             )
 
             return
@@ -603,25 +532,17 @@ Em breve o pagamento será realizado.
         motivo = "Rejeitado pelo administrador"
 
         sucesso, retorno = rejeitar_saque(
-
             saque_id,
-
             call.from_user.id,
-
             motivo
-
         )
 
         if not sucesso:
 
             bot.answer_callback_query(
-
                 call.id,
-
                 retorno,
-
                 show_alert=True
-
             )
 
             return
@@ -629,21 +550,14 @@ Em breve o pagamento será realizado.
         usuario_id = retorno
 
         bot.edit_message_reply_markup(
-
             chat_id=call.message.chat.id,
-
             message_id=call.message.message_id,
-
             reply_markup=None
-
         )
 
         bot.send_message(
-
             call.message.chat.id,
-
             "❌ Saque rejeitado."
-
         )
 
         try:
@@ -663,7 +577,6 @@ Motivo:
             )
 
         except:
-
             pass
 
         bot.answer_callback_query(call.id)
@@ -703,7 +616,6 @@ Total de usuários cadastrados:
 
         )
 
-
     # ==========================================
     # BANIMENTOS
     # ==========================================
@@ -719,13 +631,108 @@ Total de usuários cadastrados:
             message.chat.id,
 
             """
-🚫 Sistema de banimentos
+🚫 <b>SISTEMA DE BANIMENTOS</b>
 
-Esta função será integrada ao módulo antifraude.py.
-"""
+Envie um dos comandos abaixo:
+
+<code>/ban ID_DO_USUARIO</code>
+
+<code>/unban ID_DO_USUARIO</code>
+""",
+
+            parse_mode="HTML"
 
         )
 
+    @bot.message_handler(commands=["ban"])
+    def comando_ban(message):
+
+        if not admin_autorizado(message.from_user.id):
+            return
+
+        try:
+
+            usuario_id = int(message.text.split()[1])
+
+        except:
+
+            bot.reply_to(
+                message,
+                "Uso correto:\n/ban ID_DO_USUARIO"
+            )
+
+            return
+
+        sucesso = banir_usuario(usuario_id)
+
+        if sucesso:
+
+            bot.send_message(
+                message.chat.id,
+                "✅ Usuário banido."
+            )
+
+            try:
+
+                bot.send_message(
+                    usuario_id,
+                    "🚫 Você foi banido do bot."
+                )
+
+            except:
+                pass
+
+        else:
+
+            bot.send_message(
+                message.chat.id,
+                "❌ Não foi possível banir."
+            )
+
+    @bot.message_handler(commands=["unban"])
+    def comando_unban(message):
+
+        if not admin_autorizado(message.from_user.id):
+            return
+
+        try:
+
+            usuario_id = int(message.text.split()[1])
+
+        except:
+
+            bot.reply_to(
+                message,
+                "Uso correto:\n/unban ID_DO_USUARIO"
+            )
+
+            return
+
+        sucesso = desbanir_usuario(usuario_id)
+
+        if sucesso:
+
+            bot.send_message(
+                message.chat.id,
+                "✅ Usuário desbanido."
+            )
+
+            try:
+
+                bot.send_message(
+                    usuario_id,
+                    "✅ Seu acesso ao bot foi liberado novamente."
+                )
+
+            except:
+                pass
+
+        else:
+
+            bot.send_message(
+                message.chat.id,
+                "❌ Não foi possível desbanir."
+            )
 
     # ==========================================
     # ESTATÍSTICAS
@@ -737,19 +744,13 @@ Esta função será integrada ao módulo antifraude.py.
         if not admin_autorizado(message.from_user.id):
             return
 
-        cursor.execute(
-            "SELECT COUNT(*) FROM usuarios"
-        )
+        cursor.execute("SELECT COUNT(*) FROM usuarios")
         usuarios = cursor.fetchone()[0]
 
-        cursor.execute(
-            "SELECT COUNT(*) FROM indicacoes"
-        )
+        cursor.execute("SELECT COUNT(*) FROM indicacoes")
         indicacoes = cursor.fetchone()[0]
 
-        cursor.execute(
-            "SELECT COUNT(*) FROM saques"
-        )
+        cursor.execute("SELECT COUNT(*) FROM saques")
         saques = cursor.fetchone()[0]
 
         bot.send_message(
@@ -760,15 +761,12 @@ Esta função será integrada ao módulo antifraude.py.
 📊 <b>ESTATÍSTICAS</b>
 
 👥 Usuários:
-
 {usuarios}
 
 🎁 Indicações:
-
 {indicacoes}
 
 💸 Saques:
-
 {saques}
 """,
 
