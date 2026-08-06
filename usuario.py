@@ -23,6 +23,7 @@ from antifraude import usuario_banido
 
 from indicacoes import (
     gerar_link,
+    salvar_link_convite,
     indicacoes_usuario
 )
 
@@ -426,7 +427,7 @@ Nossa equipe responderá o mais rápido possível.
 # MEU LINK
 # ==========================================
 
-    @bot.message_handler(func=lambda m: m.text == "🔗 Meu Link")
+        @bot.message_handler(func=lambda m: m.text == "🔗 Meu Link")
     def meu_link(message):
 
         if usuario_banido(message.from_user.id):
@@ -435,28 +436,46 @@ Nossa equipe responderá o mais rápido possível.
                 message.chat.id,
                 "❌ Você está bloqueado."
             )
-
             return
 
         link = gerar_link(message.from_user.id)
 
         if not link:
 
-            bot.send_message(
-                message.chat.id,
-                "⏳ Seu link ainda não foi gerado."
-            )
+            try:
 
-            return
+                convite = bot.create_chat_invite_link(
+                    chat_id=GRUPO_ID,
+                    creates_join_request=False,
+                    name=f"user_{message.from_user.id}"
+                )
+
+                link = convite.invite_link
+
+                salvar_link_convite(
+                    message.from_user.id,
+                    link,
+                    f"user_{message.from_user.id}"
+                )
+
+            except Exception as erro:
+
+                bot.send_message(
+                    message.chat.id,
+                    f"❌ Erro ao criar o link:\n{erro}"
+                )
+                return
 
         bot.send_message(
             message.chat.id,
             f"""
 🔗 <b>SEU LINK DE CONVITE</b>
 
-Compartilhe este link:
+Compartilhe este link com seus amigos:
 
 <code>{link}</code>
+
+💰 A recompensa ficará pendente até aprovação do administrador.
 """,
             parse_mode="HTML"
         )
