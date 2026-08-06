@@ -423,7 +423,7 @@ Nossa equipe responderá o mais rápido possível.
 
         )
 
-    # ==========================================
+        # ==========================================
     # MEU LINK
     # ==========================================
 
@@ -440,42 +440,23 @@ Nossa equipe responderá o mais rápido possível.
 
         link = gerar_link(message.from_user.id)
 
-        if not link:
-
-            try:
-
-                convite = bot.create_chat_invite_link(
-                    chat_id=GRUPO_ID,
-                    creates_join_request=False,
-                    name=f"user_{message.from_user.id}"
-                )
-
-                link = convite.invite_link
-
-                salvar_link_convite(
-                    message.from_user.id,
-                    link,
-                    f"user_{message.from_user.id}"
-                )
-
-            except ApiTelegramException as erro:
-
-                bot.send_message(
-                    message.chat.id,
-                    f"❌ Erro ao criar o link:\n{erro}"
-                )
-                return
-
         bot.send_message(
             message.chat.id,
             f"""
-🔗 <b>SEU LINK DE CONVITE</b>
+🔗 <b>SEU LINK DE INDICAÇÃO</b>
 
-Compartilhe este link com seus amigos:
+Convide seus amigos usando o link abaixo:
 
 <code>{link}</code>
 
-💰 A recompensa ficará pendente até aprovação do administrador.
+📌 O seu amigo deve:
+
+1️⃣ Abrir o bot pelo seu link.
+2️⃣ Clicar em /start.
+3️⃣ Entrar no grupo.
+4️⃣ Aguardar a aprovação do administrador.
+
+💰 Após a aprovação, você receberá sua recompensa.
 """,
             parse_mode="HTML"
         )
@@ -484,7 +465,7 @@ Compartilhe este link com seus amigos:
 # MINHAS INDICAÇÕES
 # ==========================================
 
-    @bot.message_handler(func=lambda m: m.text == "👥 Minhas Indicações")
+@bot.message_handler(func=lambda m: m.text == "👥 Minhas Indicações")
     def minhas_indicacoes(message):
 
         lista = indicacoes_usuario(
