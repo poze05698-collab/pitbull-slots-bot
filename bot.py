@@ -83,7 +83,6 @@ def start(message):
         )
 
     markup = types.InlineKeyboardMarkup()
-
     markup.add(
         types.InlineKeyboardButton(
             "👥 Entrar no Grupo",
