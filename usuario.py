@@ -24,8 +24,10 @@ from antifraude import usuario_banido
 from indicacoes import (
     gerar_link,
     salvar_link_convite,
+    desativar_convites,
     indicacoes_usuario
 )
+
 
 from config import GRUPO_ID
 from telebot.apihelper import ApiTelegramException
@@ -398,81 +400,70 @@ Nossa equipe responderá o mais rápido possível.
 
         )
 
-    # ==========================================
+        # ==========================================
     # MEU LINK
     # ==========================================
 
-@bot.message_handler(func=lambda m: m.text == "🔗 Meu Link")
-def meu_link(message):
+    @bot.message_handler(func=lambda m: m.text == "🔗 Meu Link")
+    def meu_link(message):
 
-    if usuario_banido(message.from_user.id):
+        if usuario_banido(message.from_user.id):
 
-        bot.send_message(
-            message.chat.id,
-            "❌ Você está bloqueado."
-        )
+            bot.send_message(
+                message.chat.id,
+                "❌ Você está bloqueado."
+            )
 
-        return
+            return
 
-    try:
+        try:
 
-        desativar_convites(message.from_user.id)
+            link = gerar_link(message.from_user.id)
 
-        convite = bot.create_chat_invite_link(
+            bot.send_message(
 
-            chat_id=GRUPO_ID,
+                message.chat.id,
 
-            name=f"user_{message.from_user.id}"
+                f"""
+🔗 <b>SEU LINK DE INDICAÇÃO</b>
 
-        )
+Convide seus amigos usando o link abaixo:
 
-        salvar_link_convite(
+{link}
 
-            message.from_user.id,
+📌 O seu amigo deve:
 
-            convite.invite_link,
+1️⃣ Abrir o bot pelo seu link.
 
-            convite.name
+2️⃣ Clicar em /start.
 
-        )
+3️⃣ Entrar no grupo.
 
-        bot.send_message(
+4️⃣ Clicar em:
 
-            message.chat.id,
+<b>✅ Já entrei no grupo</b>
 
-            f"""
-🔗 <b>SEU LINK DE CONVITE</b>
+5️⃣ Aguardar a aprovação do administrador.
 
-Compartilhe este link:
-
-{convite.invite_link}
-
-✅ Quando alguém entrar por este link,
-a indicação ficará registrada
-automaticamente.
-
-Depois basta o administrador aprovar.
+💰 Após a aprovação você receberá sua recompensa.
 """,
 
-            parse_mode="HTML"
+                parse_mode="HTML"
 
-        )
+            )
 
-    except ApiTelegramException as erro:
+        except Exception as erro:
 
-        bot.send_message(
+            bot.send_message(
 
-            message.chat.id,
+                message.chat.id,
 
-            f"❌ Erro ao gerar convite.\n\n{erro}"
+                f"❌ Erro ao gerar o link.\n\n{erro}"
 
-        )
-
-    
-    # ==========================================
+            )    # ==========================================
     # MINHAS INDICAÇÕES
     # ==========================================
-    
+
     @bot.message_handler(func=lambda m: m.text == "👥 Minhas Indicações")
     def minhas_indicacoes(message):
 
@@ -491,9 +482,7 @@ Depois basta o administrador aprovar.
 
             bot.send_message(
                 message.chat.id,
-                """
-👥 Você ainda não possui indicações.
-"""
+                "👥 Você ainda não possui indicações."
             )
 
             return
@@ -502,29 +491,24 @@ Depois basta o administrador aprovar.
 
         for indicado, valor, status, grupo, data in lista:
 
-            grupo = "✅ Sim" if grupo else "❌ Não"
+            grupo_texto = "✅ Sim" if grupo else "❌ Não"
 
             texto += f"""
 ━━━━━━━━━━━━━━
 
 👤 ID:
-
 <code>{indicado}</code>
 
 💰 Valor:
-
 {dinheiro(valor)}
 
 📌 Status:
-
 {status}
 
-👥 Grupo:
-
-{grupo}
+👥 Entrou no grupo:
+{grupo_texto}
 
 📅 Data:
-
 {data}
 
 """
@@ -534,6 +518,7 @@ Depois basta o administrador aprovar.
             texto,
             parse_mode="HTML"
         )
+
 
     # ==========================================
     # MENU
@@ -546,8 +531,6 @@ Depois basta o administrador aprovar.
 
         bot.send_message(
             message.chat.id,
-            """
-🏠 Menu Principal
-""",
+            "🏠 Menu Principal",
             reply_markup=menu_principal()
         )
