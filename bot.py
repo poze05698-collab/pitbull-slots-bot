@@ -84,14 +84,14 @@ def start(message):
 
     markup = types.InlineKeyboardMarkup()
 
-markup.add(
-    types.InlineKeyboardButton(
-        "👥 Entrar no Grupo",
-        url=GRUPO_LINK
+    markup.add(
+        types.InlineKeyboardButton(
+            "👥 Entrar no Grupo",
+            url=GRUPO_LINK
+        )
     )
-)
 
-bot.send_message(
+    bot.send_message(
     message.chat.id,
     """
 🎉 <b>Bem-vindo!</b>
