@@ -271,17 +271,34 @@ Escolha uma opção.
             "✅ Indicação aprovada com sucesso."
         )
 
-        try:
-            bot.send_message(
-                usuario_id,
-                """
+       try:
+
+    # Mensagem para quem indicou
+    bot.send_message(
+        usuario_id,
+        """
 🎉 Sua indicação foi aprovada!
 
 O valor já está disponível em seu saldo.
 """
-            )
-        except Exception:
-            pass
+    )
+
+    # Mensagem para quem foi indicado
+    bot.send_message(
+        indicado_id,
+        """
+✅ Seu cadastro foi aprovado!
+
+Sua entrada no grupo foi confirmada pelo administrador.
+
+🎉 Agora você já faz parte do sistema.
+
+Obrigado por participar!
+"""
+    )
+
+except Exception:
+    pass
 
         bot.answer_callback_query(call.id)
 
