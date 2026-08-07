@@ -402,45 +402,69 @@ Nossa equipe responderá o mais rápido possível.
     # MEU LINK
     # ==========================================
 
-    @bot.message_handler(func=lambda m: m.text == "🔗 Meu Link")
-    def meu_link(message):
+@bot.message_handler(func=lambda m: m.text == "🔗 Meu Link")
+def meu_link(message):
 
-        if usuario_banido(message.from_user.id):
+    if usuario_banido(message.from_user.id):
 
-            bot.send_message(
-                message.chat.id,
-                "❌ Você está bloqueado."
-            )
+        bot.send_message(
+            message.chat.id,
+            "❌ Você está bloqueado."
+        )
 
-            return
+        return
 
-        link = gerar_link(message.from_user.id)
+    try:
+
+        desativar_convites(message.from_user.id)
+
+        convite = bot.create_chat_invite_link(
+
+            chat_id=GRUPO_ID,
+
+            name=f"user_{message.from_user.id}"
+
+        )
+
+        salvar_link_convite(
+
+            message.from_user.id,
+
+            convite.invite_link,
+
+            convite.name
+
+        )
 
         bot.send_message(
 
             message.chat.id,
 
             f"""
-🔗 <b>SEU LINK DE INDICAÇÃO</b>
+🔗 <b>SEU LINK DE CONVITE</b>
 
-Convide seus amigos usando o link abaixo:
+Compartilhe este link:
 
-<code>{link}</code>
+{convite.invite_link}
 
-📌 O seu amigo deve:
+✅ Quando alguém entrar por este link,
+a indicação ficará registrada
+automaticamente.
 
-1️⃣ Abrir o bot pelo seu link.
-
-2️⃣ Clicar em /start.
-
-3️⃣ Entrar no grupo.
-
-4️⃣ Aguardar a aprovação do administrador.
-
-💰 Após a aprovação, você receberá sua recompensa.
+Depois basta o administrador aprovar.
 """,
 
             parse_mode="HTML"
+
+        )
+
+    except ApiTelegramException as erro:
+
+        bot.send_message(
+
+            message.chat.id,
+
+            f"❌ Erro ao gerar convite.\n\n{erro}"
 
         )
 
