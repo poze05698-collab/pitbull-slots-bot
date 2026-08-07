@@ -20,8 +20,11 @@ from admin import registrar as registrar_admin
 from database import conn, cursor
 
 from config import GRUPO_ID
-from indicacoes import registrar_indicacao, confirmar_entrada_grupo
-
+from indicacoes import (
+    registrar_indicacao,
+    confirmar_entrada_grupo,
+    buscar_dono_convite
+)
 # ==========================================
 # BOT
 # ==========================================
