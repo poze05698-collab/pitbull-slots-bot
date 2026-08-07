@@ -134,7 +134,7 @@ def novo_membro(message):
         if membro.is_bot:
             continue
 
-print(f"ID: {membro.id}")
+     print(f"ID: {membro.id}")
 print(f"NOME: {membro.first_name}")
 
 resultado = confirmar_entrada_grupo(membro.id)
