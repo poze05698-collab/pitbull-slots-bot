@@ -624,7 +624,7 @@ Envie um dos comandos abaixo:
             parse_mode="HTML"
         )
 
-    @bot.message_handler(commands=["ban"])
+        @bot.message_handler(commands=["ban"])
     def comando_ban(message):
 
         if not admin_autorizado(message.from_user.id):
@@ -640,7 +640,7 @@ Envie um dos comandos abaixo:
             )
             return
 
-                sucesso = banir_usuario(usuario_id)
+        sucesso = banir_usuario(usuario_id)
 
         if sucesso:
 
@@ -655,16 +655,6 @@ Envie um dos comandos abaixo:
                     "🚫 Você foi banido do bot."
                 )
             except Exception:
-                pass
-
-        else:
-
-            bot.send_message(
-                message.chat.id,
-                "❌ Não foi possível banir."
-            )
-
-            except:
                 pass
 
         else:
