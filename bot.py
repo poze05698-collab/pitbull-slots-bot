@@ -66,13 +66,11 @@ def start(message):
         if parametro.startswith("ref_"):
 
             try:
-
                 indicador_id = int(
                     parametro.replace("ref_", "")
                 )
 
             except:
-
                 indicador_id = None
 
     if indicador_id:
@@ -83,6 +81,7 @@ def start(message):
         )
 
     markup = types.InlineKeyboardMarkup()
+
     markup.add(
         types.InlineKeyboardButton(
             "👥 Entrar no Grupo",
