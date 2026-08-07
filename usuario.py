@@ -515,8 +515,11 @@ Convide seus amigos usando o link abaixo:
     # MENU
     # ==========================================
 
-    @bot.message_handler(commands=["menu"])
-    def menu(message):
+    @bot.message_handler(
+    func=lambda m: m.text == "⬅️ Menu"
+    or m.text == "/menu"
+)
+def menu(message):
 
         bot.send_message(
             message.chat.id,
