@@ -127,6 +127,58 @@ Após a aprovação, o saldo será liberado.
     )
 
 # ==========================================
+# CONFIRMAR ENTRADA NO GRUPO
+# ==========================================
+
+@bot.callback_query_handler(func=lambda call: call.data == "confirmar_grupo")
+def confirmar_grupo(call):
+
+    usuario_id = call.from_user.id
+
+    try:
+
+        membro = bot.get_chat_member(
+            GRUPO_ID,
+            usuario_id
+        )
+
+    except Exception:
+
+        bot.answer_callback_query(
+            call.id,
+            "❌ Não foi possível verificar o grupo.",
+            show_alert=True
+        )
+
+        return
+
+    if membro.status in ("left", "kicked"):
+
+        bot.answer_callback_query(
+            call.id,
+            "❌ Você ainda não entrou no grupo.",
+            show_alert=True
+        )
+
+        return
+
+    confirmar_entrada_grupo(usuario_id)
+
+    bot.answer_callback_query(
+        call.id,
+        "✅ Grupo confirmado!"
+    )
+
+    bot.send_message(
+        call.message.chat.id,
+        """
+🎉 Sua entrada no grupo foi confirmada!
+
+Agora basta aguardar o administrador analisar sua indicação.
+"""
+    )
+
+# ==========================================
 # NOVO MEMBRO NO GRUPO
 # ==========================================
 
