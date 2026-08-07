@@ -56,39 +56,37 @@ Nossa equipe responderá o mais rápido possível.
     def receber_ticket(message):
 
         user_id = message.from_user.id
-
         mensagem = message.text.strip()
 
         estados.pop(user_id)
 
-cursor.execute(
-    """
-    INSERT INTO tickets
-    (
-        usuario_id,
-        assunto,
-        mensagem,
-        status,
-        data
-    )
-    VALUES
-    (?, ?, ?, ?, ?)
-    """,
-    (
-        user_id,
-        "Suporte",
-        mensagem,
-        STATUS_ABERTO,
-        data_atual()
-    )
-)
+        cursor.execute(
+            """
+            INSERT INTO tickets
+            (
+                usuario_id,
+                assunto,
+                mensagem,
+                status,
+                data
+            )
+            VALUES
+            (?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                "Suporte",
+                mensagem,
+                STATUS_ABERTO,
+                data_atual()
+            )
+        )
 
         conn.commit()
 
-
-    # ==========================================
-    # ENVIAR PARA O ADMIN
-    # ==========================================
+        # ==========================================
+        # ENVIAR PARA O ADMIN
+        # ==========================================
 
         markup = types.InlineKeyboardMarkup()
 
