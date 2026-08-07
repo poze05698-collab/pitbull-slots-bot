@@ -488,6 +488,32 @@ def desativar_convites(usuario_id):
     conn.commit()
 
 # ==========================================================
+# BUSCAR DONO DO LINK
+# ==========================================================
+
+def buscar_dono_convite(invite_link):
+
+    cursor.execute(
+        """
+        SELECT usuario_id
+        FROM links_convite
+        WHERE invite_link=?
+        AND ativo=1
+        LIMIT 1
+        """,
+        (
+            invite_link,
+        )
+    )
+
+    resultado = cursor.fetchone()
+
+    if resultado:
+        return resultado[0]
+
+    return None
+        
+# ==========================================================
 # BUSCAR INDICAÇÃO PELO INDICADOR
 # ==========================================================
 
