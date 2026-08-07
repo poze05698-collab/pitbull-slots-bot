@@ -248,7 +248,6 @@ Usuário:
             "✅ Resposta enviada."
         )
 
-
     # ==========================================
     # FECHAR TICKET
     # ==========================================
@@ -277,7 +276,7 @@ Usuário:
             SET
                 status=?,
                 admin_id=?,
-                data_fechamento=?
+                fechado_em=?
             WHERE usuario_id=?
             AND status IN (?, ?)
             """,
