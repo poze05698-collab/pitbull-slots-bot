@@ -17,7 +17,6 @@ def registrar(bot):
 
     respostas = {}
 
-
     # ==========================================
     # ABRIR TICKET
     # ==========================================
@@ -56,6 +55,7 @@ Nossa equipe responderá o mais rápido possível.
     def receber_ticket(message):
 
         user_id = message.from_user.id
+
         mensagem = message.text.strip()
 
         estados.pop(user_id)
@@ -83,10 +83,6 @@ Nossa equipe responderá o mais rápido possível.
         )
 
         conn.commit()
-
-        # ==========================================
-        # ENVIAR PARA O ADMIN
-        # ==========================================
 
         markup = types.InlineKeyboardMarkup()
 
@@ -180,10 +176,12 @@ Nossa equipe responderá em breve.
             ADMIN_ID,
 
             f"""
-✍️ Responda o ticket.
+✍️ <b>RESPONDER TICKET</b>
 
 Usuário:
 <code>{usuario_id}</code>
+
+Digite a resposta abaixo.
 """,
 
             parse_mode="HTML"
@@ -229,24 +227,31 @@ Usuário:
 
         conn.commit()
 
-        bot.send_message(
+        try:
 
-            usuario_id,
+            bot.send_message(
 
-            f"""
+                usuario_id,
+
+                f"""
 📩 <b>Resposta do Suporte</b>
 
 {resposta}
 """,
 
-            parse_mode="HTML"
+                parse_mode="HTML"
 
-        )
+            )
+
+        except Exception:
+
+            pass
 
         bot.send_message(
             ADMIN_ID,
-            "✅ Resposta enviada."
+            "✅ Resposta enviada com sucesso."
         )
+
 
     # ==========================================
     # FECHAR TICKET
@@ -308,7 +313,9 @@ Usuário:
 
 Se precisar de ajuda novamente,
 abra um novo ticket pelo menu.
-"""
+""",
+
+                parse_mode="HTML"
 
             )
 
