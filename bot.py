@@ -134,10 +134,10 @@ def novo_membro(message):
         if membro.is_bot:
             continue
 
-     print(f"ID: {membro.id}")
-print(f"NOME: {membro.first_name}")
+        print(f"ID: {membro.id}")
+        print(f"NOME: {membro.first_name}")
 
-confirmar_entrada_grupo(membro.id)
+        confirmar_entrada_grupo(membro.id)
 
 
 # ==========================================
