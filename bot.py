@@ -85,24 +85,24 @@ def start(message):
 
     markup = types.InlineKeyboardMarkup()
 
-markup.add(
-    types.InlineKeyboardButton(
-        "👥 Entrar no Grupo",
-        url=GRUPO_LINK
+    markup.add(
+        types.InlineKeyboardButton(
+            "👥 Entrar no Grupo",
+            url=GRUPO_LINK
+        )
     )
-)
 
-markup.add(
-    types.InlineKeyboardButton(
-        "✅ Já entrei no grupo",
-        callback_data="confirmar_grupo"
+    markup.add(
+        types.InlineKeyboardButton(
+            "✅ Já entrei no grupo",
+            callback_data="confirmar_grupo"
+        )
     )
-)
 
     bot.send_message(
         message.chat.id,
         """
-🎉 <b>Bem-vindo!</b>
+🎉 Bem-vindo!
 
 Seu cadastro foi realizado com sucesso.
 
@@ -112,7 +112,9 @@ Para validar sua indicação:
 
 2️⃣ Depois volte ao bot.
 
-3️⃣ O administrador analisará sua indicação.
+3️⃣ Clique em **✅ Já entrei no grupo**.
+
+4️⃣ Aguarde a aprovação do administrador.
 
 Após a aprovação, o saldo será liberado.
 """,
@@ -125,7 +127,6 @@ Após a aprovação, o saldo será liberado.
         "🏠 Menu Principal",
         reply_markup=menu_principal()
     )
-
 # ==========================================
 # CONFIRMAR ENTRADA NO GRUPO
 # ==========================================
