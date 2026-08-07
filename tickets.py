@@ -61,25 +61,27 @@ Nossa equipe responderá o mais rápido possível.
 
         estados.pop(user_id)
 
-        cursor.execute(
-            """
-            INSERT INTO tickets
-            (
-                usuario_id,
-                mensagem,
-                status,
-                data
-            )
-            VALUES
-            (?, ?, ?, ?)
-            """,
-            (
-                user_id,
-                mensagem,
-                STATUS_ABERTO,
-                data_atual()
-            )
-        )
+cursor.execute(
+    """
+    INSERT INTO tickets
+    (
+        usuario_id,
+        assunto,
+        mensagem,
+        status,
+        data
+    )
+    VALUES
+    (?, ?, ?, ?, ?)
+    """,
+    (
+        user_id,
+        "Suporte",
+        mensagem,
+        STATUS_ABERTO,
+        data_atual()
+    )
+)
 
         conn.commit()
 
