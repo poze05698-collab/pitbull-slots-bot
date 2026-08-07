@@ -137,9 +137,7 @@ def novo_membro(message):
      print(f"ID: {membro.id}")
 print(f"NOME: {membro.first_name}")
 
-resultado = confirmar_entrada_grupo(membro.id)
-
-print(f"CONFIRMOU O GRUPO? {resultado}")
+confirmar_entrada_grupo(membro.id)
 
 
 # ==========================================
