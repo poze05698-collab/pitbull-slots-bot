@@ -440,6 +440,52 @@ def buscar_por_indicado(indicado_id):
 
     return cursor.fetchone()
 
+# ==========================================================
+# SALVAR LINK DE CONVITE
+# ==========================================================
+
+def salvar_link_convite(usuario_id, invite_link, invite_name):
+
+    cursor.execute(
+        """
+        INSERT INTO links_convite
+        (
+            usuario_id,
+            invite_link,
+            invite_name,
+            data_criacao
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            usuario_id,
+            invite_link,
+            invite_name,
+            data_atual()
+        )
+    )
+
+    conn.commit()
+
+
+# ==========================================================
+# DESATIVAR CONVITES ANTIGOS
+# ==========================================================
+
+def desativar_convites(usuario_id):
+
+    cursor.execute(
+        """
+        UPDATE links_convite
+        SET ativo=0
+        WHERE usuario_id=?
+        """,
+        (
+            usuario_id,
+        )
+    )
+
+    conn.commit()
 
 # ==========================================================
 # BUSCAR INDICAÇÃO PELO INDICADOR
