@@ -25,7 +25,7 @@ BOT_USERNAME = "PITBULL_SLOTS_BOT"
 
 GRUPO_ID = -1003355182545
 
-GRUPO_LINK = "https://t.me/pitbullslots1"
+GRUPO_LINK = "https://t.me/PITBULLPRIME1"
 
 
 # =====================================================
