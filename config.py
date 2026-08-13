@@ -2,7 +2,7 @@
 # TOKEN DO BOT
 # =====================================================
 
-TOKEN = "COLOQUE_SEU_NOVO_TOKEN_AQUI"
+TOKEN = "8771309444:AAEOZJdlGIWwezJsSVWENvzbplWrowt9IcY"
 
 
 # =====================================================
