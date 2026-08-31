@@ -1,3 +1,0 @@
-pyTelegramBotAPI>=4.29,<5
-
-requests>=2.32,<3
