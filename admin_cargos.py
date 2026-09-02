@@ -16,7 +16,7 @@ def menu_admin_por_cargo(user_id):
     perms = CARGOS_ADMIN.get(cargo, {}).get("permissoes", set()) if cargo != "master" else set(CARGOS_ADMIN["gerente"]["permissoes"]) | {"admin_cargos"}
     itens = [
         ("📊 Dashboard","dashboard"),("🎁 Indicações","indicacoes"),("💸 Saques","saques"),("💰 Adicionar Saldo","saldo"),
-        ("👥 Usuários","usuarios"),("🏆 Ranking","ranking"),("📢 Anunciar","anuncio"),("📊 Estatísticas","dashboard"),
+        ("👥 Usuários","usuarios"),("🟢 Usuários Online","usuarios"),("🏆 Ranking","ranking"),("📢 Anunciar","anuncio"),("📊 Estatísticas","dashboard"),
         ("🔄 Reabrir Indicações","reabrir_indicacoes"),
         ("🧠 Gamificação","gamificacao"),("🔥 Evento","evento"),("💎 Configurar VIP","vip"),("🛠️ Manutenção","manutencao"),
         ("🎫 Tickets","tickets"),("🎟️ Códigos","codigos"),("🤝 Parceiros","parceiros"),("🚫 Banimentos","banimentos"),("⚙️ Configurações","configuracoes")
@@ -30,10 +30,6 @@ def menu_admin_por_cargo(user_id):
                 kb.add(types.KeyboardButton(label))
         elif perm in perms:
             kb.add(types.KeyboardButton(label))
-    # Usuários Online: disponível para qualquer cargo que tenha acesso à lista de usuários.
-    if "usuarios" in perms:
-        kb.add(types.KeyboardButton("🟢 Usuários Online"))
-
     if cargo == "master":
         kb.add(types.KeyboardButton("👑 Administradores"))
         kb.add(types.KeyboardButton("🧪 Resetar Teste de Grupo"))
