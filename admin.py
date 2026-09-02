@@ -1153,7 +1153,7 @@ Envie um dos comandos abaixo:
     # USUÁRIOS ONLINE
     # ==========================================
 
-    @bot.message_handler(func=lambda m: m.text == "🟢 Usuários Online" and admin_autorizado(m.from_user.id))
+    @bot.message_handler(func=lambda m: m.text == "🟢 Usuários Online")
     def usuarios_online(message):
 
         if not admin_autorizado(message.from_user.id):
@@ -1232,15 +1232,10 @@ Envie um dos comandos abaixo:
                     f"⏱️ Ativo há: <b>{tempo}</b>"
                 ])
 
-        kb = types.ReplyKeyboardMarkup(resize_keyboard=True, is_persistent=True, row_width=2)
-        kb.row(types.KeyboardButton("👥 Usuários"), types.KeyboardButton("📊 Dashboard"))
-        kb.row(types.KeyboardButton("⬅️ Menu"))
-
         bot.send_message(
             message.chat.id,
             "\n".join(texto),
-            parse_mode="HTML",
-            reply_markup=kb
+            parse_mode="HTML"
         )
 
     # ==========================================
@@ -1579,158 +1574,233 @@ O administrador adicionou:
         )
 
     # =====================================================
-    # ANÚNCIOS
+    # ANÚNCIOS — SISTEMA AVANÇADO
     # =====================================================
+
+    def _alvos_anuncio(tipo):
+        """Retorna IDs dos destinatários sem incluir usuários banidos."""
+        if tipo == "online":
+            from datetime import datetime, timedelta
+            agora = datetime.now()
+            limite = agora - timedelta(minutes=5)
+            cursor.execute("SELECT id, ultimo_acesso FROM usuarios WHERE banido=0")
+            ids = []
+            for uid, ultimo in cursor.fetchall():
+                if not ultimo:
+                    continue
+                try:
+                    dt = datetime.strptime(str(ultimo), "%d/%m/%Y %H:%M:%S")
+                    if dt >= limite:
+                        ids.append(int(uid))
+                except Exception:
+                    pass
+            return ids
+
+        if tipo == "vip":
+            try:
+                cursor.execute("""
+                    SELECT DISTINCT u.id
+                    FROM usuarios u
+                    INNER JOIN vip_assinaturas v ON v.usuario_id=u.id
+                    WHERE u.banido=0 AND v.status='ATIVO' AND v.expiracao > datetime('now')
+                """)
+                return [int(row[0]) for row in cursor.fetchall()]
+            except Exception:
+                return []
+
+        if tipo == "saldo":
+            cursor.execute("SELECT id FROM usuarios WHERE banido=0 AND saldo > 0")
+            return [int(row[0]) for row in cursor.fetchall()]
+
+        cursor.execute("SELECT id FROM usuarios WHERE banido=0")
+        return [int(row[0]) for row in cursor.fetchall()]
+
+    def _nome_alvo(tipo):
+        return {
+            "todos": "👥 Todos os usuários",
+            "online": "🟢 Usuários online",
+            "vip": "💎 Usuários VIP",
+            "saldo": "💰 Usuários com saldo",
+        }.get(tipo, "👥 Todos os usuários")
 
     @bot.message_handler(func=lambda m: m.text == "📢 Anunciar")
     def iniciar_anuncio(message):
-
         if not admin_autorizado(message.from_user.id):
             return
 
-        estado_anuncio[message.from_user.id] = True
+        estado_anuncio[message.from_user.id] = {"etapa": "alvo"}
 
-        bot.send_message(
-            message.chat.id,
-            """
-📢 <b>NOVO ANÚNCIO</b>
-
-Digite a mensagem que deseja enviar para os usuários.
-
-⚠️ Depois será mostrada uma confirmação antes do disparo.
-""",
-            parse_mode="HTML"
-        )
-
-    @bot.message_handler(
-        func=lambda m: (
-            m.from_user.id == ADMIN_ID
-            and m.from_user.id in estado_anuncio
-        )
-    )
-    def receber_anuncio(message):
-
-        texto = (message.text or "").strip()
-
-        if not texto:
-            return
-
-        estado_anuncio.pop(
-            message.from_user.id,
-            None
-        )
-
-        cursor.execute(
-            "SELECT COUNT(*) FROM usuarios WHERE banido=0"
-        )
-        total = cursor.fetchone()[0]
-
-        markup = types.InlineKeyboardMarkup()
+        markup = types.InlineKeyboardMarkup(row_width=2)
         markup.row(
-            types.InlineKeyboardButton(
-                "✅ Enviar",
-                callback_data="anuncio_confirmar"
-            ),
-            types.InlineKeyboardButton(
-                "❌ Cancelar",
-                callback_data="anuncio_cancelar"
-            )
+            types.InlineKeyboardButton("👥 Todos", callback_data="anuncio_alvo_todos"),
+            types.InlineKeyboardButton("🟢 Online", callback_data="anuncio_alvo_online")
         )
-
-        estado_anuncio[message.from_user.id] = {
-            "mensagem": texto
-        }
+        markup.row(
+            types.InlineKeyboardButton("💎 VIP", callback_data="anuncio_alvo_vip"),
+            types.InlineKeyboardButton("💰 Com saldo", callback_data="anuncio_alvo_saldo")
+        )
+        markup.add(types.InlineKeyboardButton("❌ Cancelar", callback_data="anuncio_cancelar"))
 
         bot.send_message(
             message.chat.id,
-            f"""
-📢 <b>CONFIRMAR ANÚNCIO</b>
-
-👥 Destinatários: <b>{total}</b>
-
-━━━━━━━━━━━━━━━━━━━━
-
-{texto}
-
-━━━━━━━━━━━━━━━━━━━━
-
-Deseja enviar?
-""",
+            "📢 <b>NOVO ANÚNCIO</b>\n\n"
+            "Primeiro escolha quem receberá a campanha:\n\n"
+            "👥 <b>Todos</b> — toda a base não banida\n"
+            "🟢 <b>Online</b> — atividade nos últimos 5 minutos\n"
+            "💎 <b>VIP</b> — VIP atualmente ativo\n"
+            "💰 <b>Com saldo</b> — usuários com saldo acima de R$ 0\n\n"
+            "Depois você poderá enviar <b>texto, foto, vídeo, áudio ou documento</b>.",
             parse_mode="HTML",
             reply_markup=markup
         )
 
-    @bot.callback_query_handler(
-        func=lambda c: c.data == "anuncio_cancelar"
-    )
-    def cancelar_anuncio(call):
-
+    @bot.callback_query_handler(func=lambda c: c.data.startswith("anuncio_alvo_"))
+    def escolher_alvo_anuncio(call):
         if not admin_autorizado(call.from_user.id):
             return
 
-        estado_anuncio.pop(
-            call.from_user.id,
-            None
-        )
+        tipo = call.data.replace("anuncio_alvo_", "", 1)
+        if tipo not in {"todos", "online", "vip", "saldo"}:
+            bot.answer_callback_query(call.id, "Opção inválida.", show_alert=True)
+            return
 
-        bot.edit_message_text(
-            "❌ Anúncio cancelado.",
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id
-        )
+        ids = _alvos_anuncio(tipo)
+        estado_anuncio[call.from_user.id] = {
+            "etapa": "mensagem",
+            "alvo": tipo,
+            "destinatarios": ids,
+        }
 
         bot.answer_callback_query(call.id)
-
-    @bot.callback_query_handler(
-        func=lambda c: c.data == "anuncio_confirmar"
-    )
-    def confirmar_anuncio(call):
-
-        if not admin_autorizado(call.from_user.id):
-            return
-
-        estado = estado_anuncio.pop(
-            call.from_user.id,
-            None
+        bot.edit_message_text(
+            f"📢 <b>CAMPANHA</b>\n\n"
+            f"🎯 Público: <b>{_nome_alvo(tipo)}</b>\n"
+            f"👥 Destinatários: <b>{len(ids)}</b>\n\n"
+            "Agora envie a mensagem que deseja disparar.\n\n"
+            "📎 Pode ser <b>texto, foto, vídeo, áudio ou documento</b>.",
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            parse_mode="HTML"
         )
 
+    @bot.message_handler(
+        content_types=["text", "photo", "video", "audio", "document", "animation", "voice"],
+        func=lambda m: (
+            admin_autorizado(m.from_user.id)
+            and isinstance(estado_anuncio.get(m.from_user.id), dict)
+            and estado_anuncio[m.from_user.id].get("etapa") == "mensagem"
+        )
+    )
+    def receber_anuncio(message):
+        estado = estado_anuncio.get(message.from_user.id)
         if not estado:
-            bot.answer_callback_query(
-                call.id,
-                "Anúncio expirado.",
-                show_alert=True
+            return
+
+        destinatarios = list(estado.get("destinatarios", []))
+        if not destinatarios:
+            estado_anuncio.pop(message.from_user.id, None)
+            bot.send_message(
+                message.chat.id,
+                "⚠️ <b>Nenhum usuário encontrado para esse público.</b>",
+                parse_mode="HTML"
             )
             return
 
-        texto = estado["mensagem"]
+        estado.update({
+            "etapa": "confirmacao",
+            "chat_id": message.chat.id,
+            "message_id": message.message_id,
+        })
 
-        cursor.execute(
-            "SELECT id FROM usuarios WHERE banido=0"
+        try:
+            bot.copy_message(
+                message.chat.id,
+                message.chat.id,
+                message.message_id
+            )
+        except Exception as erro:
+            estado_anuncio.pop(message.from_user.id, None)
+            print(f"ERRO AO PREVISUALIZAR ANUNCIO: {erro}")
+            bot.send_message(message.chat.id, "❌ Não consegui preparar a prévia desse anúncio.")
+            return
+
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        markup.row(
+            types.InlineKeyboardButton("✅ ENVIAR AGORA", callback_data="anuncio_confirmar"),
+            types.InlineKeyboardButton("❌ CANCELAR", callback_data="anuncio_cancelar")
         )
-        usuarios = cursor.fetchall()
+
+        bot.send_message(
+            message.chat.id,
+            "📢 <b>CONFIRMAR CAMPANHA</b>\n\n"
+            f"🎯 Público: <b>{_nome_alvo(estado['alvo'])}</b>\n"
+            f"👥 Destinatários: <b>{len(destinatarios)}</b>\n\n"
+            "A mensagem acima será enviada exatamente como foi recebida.\n\n"
+            "Deseja disparar agora?",
+            parse_mode="HTML",
+            reply_markup=markup
+        )
+
+    @bot.callback_query_handler(func=lambda c: c.data == "anuncio_cancelar")
+    def cancelar_anuncio(call):
+        if not admin_autorizado(call.from_user.id):
+            return
+
+        estado_anuncio.pop(call.from_user.id, None)
+        try:
+            bot.edit_message_text(
+                "❌ <b>Campanha cancelada.</b>",
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                parse_mode="HTML"
+            )
+        except Exception:
+            bot.send_message(call.message.chat.id, "❌ Campanha cancelada.")
+        bot.answer_callback_query(call.id)
+
+    @bot.callback_query_handler(func=lambda c: c.data == "anuncio_confirmar")
+    def confirmar_anuncio(call):
+        if not admin_autorizado(call.from_user.id):
+            return
+
+        estado = estado_anuncio.pop(call.from_user.id, None)
+        if not estado or estado.get("etapa") != "confirmacao":
+            bot.answer_callback_query(call.id, "Campanha expirada.", show_alert=True)
+            return
+
+        destinatarios = list(estado.get("destinatarios", []))
+        origem_chat = estado.get("chat_id")
+        origem_msg = estado.get("message_id")
+
+        bot.answer_callback_query(call.id, "Disparando campanha...")
 
         enviados = 0
-
-        for (uid,) in usuarios:
-
+        falhas = 0
+        for uid in destinatarios:
             try:
-                bot.send_message(
-                    uid,
-                    f"📢 <b>AVISO</b>\n\n{texto}",
-                    parse_mode="HTML"
-                )
+                bot.copy_message(uid, origem_chat, origem_msg)
                 enviados += 1
+            except Exception as erro:
+                falhas += 1
+                print(f"ERRO ANUNCIO PARA {uid}: {erro}")
 
-            except Exception:
-                pass
-
-        bot.edit_message_text(
-            f"✅ Anúncio enviado.\n\n📨 Entregues: {enviados}/{len(usuarios)}",
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id
-        )
-
-        bot.answer_callback_query(call.id)
+        try:
+            bot.edit_message_text(
+                "📢 <b>CAMPANHA FINALIZADA</b>\n\n"
+                f"🎯 Público: <b>{_nome_alvo(estado['alvo'])}</b>\n"
+                f"👥 Destinatários: <b>{len(destinatarios)}</b>\n\n"
+                f"✅ Entregues: <b>{enviados}</b>\n"
+                f"❌ Falharam: <b>{falhas}</b>\n\n"
+                f"📊 Taxa de sucesso: <b>{(enviados / len(destinatarios) * 100):.1f}%</b>",
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                parse_mode="HTML"
+            )
+        except Exception:
+            bot.send_message(
+                call.message.chat.id,
+                f"📢 Campanha finalizada.\n\n✅ {enviados} enviados\n❌ {falhas} falharam."
+            )
 
     # =====================================================
     # CONFIGURAÇÕES
