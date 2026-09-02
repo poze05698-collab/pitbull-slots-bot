@@ -1707,10 +1707,18 @@ O administrador adicionou:
             return
 
         estado.update({
-            "etapa": "confirmacao",
+            "etapa": "botoes",
             "chat_id": message.chat.id,
             "message_id": message.message_id,
+            "botoes": []
         })
+
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        markup.row(
+            types.InlineKeyboardButton("🔘 Adicionar botão", callback_data="anuncio_add_botao"),
+            types.InlineKeyboardButton("➡️ Continuar sem botões", callback_data="anuncio_sem_botoes")
+        )
+        markup.add(types.InlineKeyboardButton("❌ Cancelar", callback_data="anuncio_cancelar"))
 
         try:
             bot.copy_message(
@@ -1724,6 +1732,62 @@ O administrador adicionou:
             bot.send_message(message.chat.id, "❌ Não consegui preparar a prévia desse anúncio.")
             return
 
+        bot.send_message(
+            message.chat.id,
+            "📢 <b>BOTÕES DO ANÚNCIO</b>\n\n"
+            "Você pode adicionar até <b>6 botões</b> com links.\n\n"
+            "🔘 <b>Adicionar botão</b> — criar botão com URL\n"
+            "➡️ <b>Continuar sem botões</b> — finalizar a mensagem sem botões",
+            parse_mode="HTML",
+            reply_markup=markup
+        )
+
+    def _markup_botoes_anuncio(botoes):
+        if not botoes:
+            return None
+
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        linha = []
+        for botao in botoes:
+            linha.append(
+                types.InlineKeyboardButton(
+                    botao["texto"],
+                    url=botao["url"]
+                )
+            )
+            if len(linha) == 2:
+                markup.row(*linha)
+                linha = []
+
+        if linha:
+            markup.row(*linha)
+
+        return markup
+
+    def _enviar_preview_anuncio(chat_id, estado):
+        markup = _markup_botoes_anuncio(estado.get("botoes", []))
+        try:
+            bot.copy_message(
+                chat_id,
+                estado["chat_id"],
+                estado["message_id"],
+                reply_markup=markup
+            )
+            return True
+        except Exception as erro:
+            print(f"ERRO AO PREVISUALIZAR ANUNCIO COM BOTOES: {erro}")
+            return False
+
+    def _mostrar_confirmacao_anuncio(call, estado):
+        botoes = estado.get("botoes", [])
+        descricao_botoes = (
+            "\n".join(
+                f"🔘 {i}. {b['texto']} → {b['url']}"
+                for i, b in enumerate(botoes, 1)
+            )
+            if botoes else "Nenhum botão"
+        )
+
         markup = types.InlineKeyboardMarkup(row_width=2)
         markup.row(
             types.InlineKeyboardButton("✅ ENVIAR AGORA", callback_data="anuncio_confirmar"),
@@ -1731,15 +1795,182 @@ O administrador adicionou:
         )
 
         bot.send_message(
-            message.chat.id,
+            call.message.chat.id,
             "📢 <b>CONFIRMAR CAMPANHA</b>\n\n"
             f"🎯 Público: <b>{_nome_alvo(estado['alvo'])}</b>\n"
-            f"👥 Destinatários: <b>{len(destinatarios)}</b>\n\n"
-            "A mensagem acima será enviada exatamente como foi recebida.\n\n"
+            f"👥 Destinatários: <b>{len(estado['destinatarios'])}</b>\n\n"
+            f"🔘 <b>Botões:</b>\n{descricao_botoes}\n\n"
+            "A mensagem acima será enviada exatamente como foi recebida.\n"
+            "Os botões, se houver, também serão enviados.\n\n"
             "Deseja disparar agora?",
             parse_mode="HTML",
             reply_markup=markup
         )
+
+    @bot.callback_query_handler(func=lambda c: c.data == "anuncio_add_botao")
+    def adicionar_botao_anuncio(call):
+        if not admin_autorizado(call.from_user.id):
+            return
+
+        estado = estado_anuncio.get(call.from_user.id)
+        if not estado or estado.get("etapa") != "botoes":
+            bot.answer_callback_query(call.id, "Campanha expirada.", show_alert=True)
+            return
+
+        if len(estado.get("botoes", [])) >= 6:
+            bot.answer_callback_query(call.id, "Você já adicionou 6 botões.", show_alert=True)
+            return
+
+        estado["etapa"] = "botao_texto"
+        bot.answer_callback_query(call.id)
+        bot.send_message(
+            call.message.chat.id,
+            "🔘 <b>NOVO BOTÃO</b>\n\n"
+            "Digite o <b>nome do botão</b>.\n\n"
+            "Exemplo:\n"
+            "<code>🎁 ACESSAR AGORA</code>",
+            parse_mode="HTML"
+        )
+
+    @bot.message_handler(
+        content_types=["text"],
+        func=lambda m: (
+            admin_autorizado(m.from_user.id)
+            and isinstance(estado_anuncio.get(m.from_user.id), dict)
+            and estado_anuncio[m.from_user.id].get("etapa") == "botao_texto"
+        )
+    )
+    def receber_texto_botao_anuncio(message):
+        estado = estado_anuncio.get(message.from_user.id)
+        texto_botao = (message.text or "").strip()
+
+        if not estado:
+            return
+
+        if not texto_botao:
+            bot.send_message(message.chat.id, "❌ O nome do botão não pode ficar vazio.")
+            return
+
+        if len(texto_botao) > 64:
+            bot.send_message(
+                message.chat.id,
+                "❌ O nome do botão pode ter no máximo <b>64 caracteres</b>.",
+                parse_mode="HTML"
+            )
+            return
+
+        estado["botao_temp_texto"] = texto_botao
+        estado["etapa"] = "botao_url"
+
+        bot.send_message(
+            message.chat.id,
+            "🔗 <b>LINK DO BOTÃO</b>\n\n"
+            "Agora envie a URL que o botão deverá abrir.\n\n"
+            "Exemplo:\n"
+            "<code>https://t.me/PITBULL_SLOTS_BOT</code>\n\n"
+            "⚠️ O link precisa começar com <b>http://</b> ou <b>https://</b>.",
+            parse_mode="HTML"
+        )
+
+    @bot.message_handler(
+        content_types=["text"],
+        func=lambda m: (
+            admin_autorizado(m.from_user.id)
+            and isinstance(estado_anuncio.get(m.from_user.id), dict)
+            and estado_anuncio[m.from_user.id].get("etapa") == "botao_url"
+        )
+    )
+    def receber_url_botao_anuncio(message):
+        estado = estado_anuncio.get(message.from_user.id)
+        url = (message.text or "").strip()
+
+        if not estado:
+            return
+
+        if not re.match(r"^https?://\S+$", url, re.IGNORECASE):
+            bot.send_message(
+                message.chat.id,
+                "❌ URL inválida.\n\n"
+                "Use um link começando com <b>http://</b> ou <b>https://</b>.",
+                parse_mode="HTML"
+            )
+            return
+
+        estado.setdefault("botoes", []).append({
+            "texto": estado.pop("botao_temp_texto", "Abrir"),
+            "url": url
+        })
+
+        if len(estado["botoes"]) >= 6:
+            estado["etapa"] = "confirmacao"
+            bot.send_message(
+                message.chat.id,
+                "✅ <b>6 botões adicionados.</b>\n\n"
+                "O limite máximo foi atingido.",
+                parse_mode="HTML"
+            )
+            # Reenvia a prévia com os botões e mostra confirmação.
+            _enviar_preview_anuncio(message.chat.id, estado)
+            fake = type("Obj", (), {
+                "message": type("Msg", (), {"chat": type("Chat", (), {"id": message.chat.id})()})()
+            })()
+            _mostrar_confirmacao_anuncio(fake, estado)
+            return
+
+        estado["etapa"] = "botoes"
+
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        markup.row(
+            types.InlineKeyboardButton("🔘 Adicionar outro", callback_data="anuncio_add_botao"),
+            types.InlineKeyboardButton("✅ Finalizar botões", callback_data="anuncio_finalizar_botoes")
+        )
+        markup.add(types.InlineKeyboardButton("❌ Cancelar", callback_data="anuncio_cancelar"))
+
+        bot.send_message(
+            message.chat.id,
+            f"✅ <b>Botão adicionado!</b>\n\n"
+            f"🔘 {len(estado['botoes'])}. <b>{estado['botoes'][-1]['texto']}</b>\n"
+            f"🔗 {estado['botoes'][-1]['url']}\n\n"
+            f"Você pode adicionar mais <b>{6 - len(estado['botoes'])}</b>.",
+            parse_mode="HTML",
+            reply_markup=markup
+        )
+
+    @bot.callback_query_handler(func=lambda c: c.data == "anuncio_finalizar_botoes")
+    def finalizar_botoes_anuncio(call):
+        if not admin_autorizado(call.from_user.id):
+            return
+
+        estado = estado_anuncio.get(call.from_user.id)
+        if not estado or estado.get("etapa") != "botoes":
+            bot.answer_callback_query(call.id, "Campanha expirada.", show_alert=True)
+            return
+
+        estado["etapa"] = "confirmacao"
+        bot.answer_callback_query(call.id)
+
+        if not _enviar_preview_anuncio(call.message.chat.id, estado):
+            bot.send_message(call.message.chat.id, "❌ Não consegui preparar a prévia com os botões.")
+            estado_anuncio.pop(call.from_user.id, None)
+            return
+
+        _mostrar_confirmacao_anuncio(call, estado)
+
+    @bot.callback_query_handler(func=lambda c: c.data == "anuncio_sem_botoes")
+    def anuncio_sem_botoes(call):
+        if not admin_autorizado(call.from_user.id):
+            return
+
+        estado = estado_anuncio.get(call.from_user.id)
+        if not estado or estado.get("etapa") != "botoes":
+            bot.answer_callback_query(call.id, "Campanha expirada.", show_alert=True)
+            return
+
+        estado["etapa"] = "confirmacao"
+        estado["botoes"] = []
+        bot.answer_callback_query(call.id)
+
+        _mostrar_confirmacao_anuncio(call, estado)
 
     @bot.callback_query_handler(func=lambda c: c.data == "anuncio_cancelar")
     def cancelar_anuncio(call):
@@ -1771,27 +2002,42 @@ O administrador adicionou:
         destinatarios = list(estado.get("destinatarios", []))
         origem_chat = estado.get("chat_id")
         origem_msg = estado.get("message_id")
+        markup = _markup_botoes_anuncio(estado.get("botoes", []))
 
         bot.answer_callback_query(call.id, "Disparando campanha...")
 
         enviados = 0
         falhas = 0
+        bloqueados = 0
+
         for uid in destinatarios:
             try:
-                bot.copy_message(uid, origem_chat, origem_msg)
+                bot.copy_message(
+                    uid,
+                    origem_chat,
+                    origem_msg,
+                    reply_markup=markup
+                )
                 enviados += 1
             except Exception as erro:
                 falhas += 1
+                erro_txt = str(erro).lower()
+                if "bot was blocked by the user" in erro_txt or "user is deactivated" in erro_txt:
+                    bloqueados += 1
                 print(f"ERRO ANUNCIO PARA {uid}: {erro}")
+
+        taxa = (enviados / len(destinatarios) * 100) if destinatarios else 0
 
         try:
             bot.edit_message_text(
                 "📢 <b>CAMPANHA FINALIZADA</b>\n\n"
                 f"🎯 Público: <b>{_nome_alvo(estado['alvo'])}</b>\n"
-                f"👥 Destinatários: <b>{len(destinatarios)}</b>\n\n"
+                f"👥 Destinatários: <b>{len(destinatarios)}</b>\n"
+                f"🔘 Botões: <b>{len(estado.get('botoes', []))}</b>\n\n"
                 f"✅ Entregues: <b>{enviados}</b>\n"
-                f"❌ Falharam: <b>{falhas}</b>\n\n"
-                f"📊 Taxa de sucesso: <b>{(enviados / len(destinatarios) * 100):.1f}%</b>",
+                f"🚫 Bloquearam o bot: <b>{bloqueados}</b>\n"
+                f"❌ Outros erros: <b>{falhas - bloqueados}</b>\n\n"
+                f"📊 Taxa de sucesso: <b>{taxa:.1f}%</b>",
                 chat_id=call.message.chat.id,
                 message_id=call.message.message_id,
                 parse_mode="HTML"
@@ -1799,7 +2045,10 @@ O administrador adicionou:
         except Exception:
             bot.send_message(
                 call.message.chat.id,
-                f"📢 Campanha finalizada.\n\n✅ {enviados} enviados\n❌ {falhas} falharam."
+                f"📢 Campanha finalizada.\n\n"
+                f"✅ {enviados} enviados\n"
+                f"🚫 {bloqueados} bloquearam o bot\n"
+                f"❌ {falhas - bloqueados} outros erros"
             )
 
     # =====================================================
