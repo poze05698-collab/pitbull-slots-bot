@@ -1153,7 +1153,7 @@ Envie um dos comandos abaixo:
     # USUÁRIOS ONLINE
     # ==========================================
 
-    @bot.message_handler(func=lambda m: m.text == "🟢 Usuários Online")
+    @bot.message_handler(func=lambda m: m.text == "🟢 Usuários Online" and admin_autorizado(m.from_user.id))
     def usuarios_online(message):
 
         if not admin_autorizado(message.from_user.id):
@@ -1232,10 +1232,15 @@ Envie um dos comandos abaixo:
                     f"⏱️ Ativo há: <b>{tempo}</b>"
                 ])
 
+        kb = types.ReplyKeyboardMarkup(resize_keyboard=True, is_persistent=True, row_width=2)
+        kb.row(types.KeyboardButton("👥 Usuários"), types.KeyboardButton("📊 Dashboard"))
+        kb.row(types.KeyboardButton("⬅️ Menu"))
+
         bot.send_message(
             message.chat.id,
             "\n".join(texto),
-            parse_mode="HTML"
+            parse_mode="HTML",
+            reply_markup=kb
         )
 
     # ==========================================
