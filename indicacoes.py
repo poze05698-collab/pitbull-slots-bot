@@ -298,6 +298,11 @@ def aprovar_indicacao(indicacao_id, admin_id):
         dar_vip_xp(indicador_id, 10)
         recalcular_confianca(indicador_id)
         verificar_conquistas(indicador_id)
+        try:
+            from missoes import atualizar_missoes_usuario
+            atualizar_missoes_usuario(indicador_id)
+        except Exception as erro_missao:
+            print(f"Erro ao atualizar missões: {erro_missao}")
     except Exception as erro:
         print(f"Erro ao atualizar gamificação: {erro}")
 
