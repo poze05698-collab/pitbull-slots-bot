@@ -22,6 +22,8 @@ def preparar_banco():
     cursor.execute('''CREATE TABLE IF NOT EXISTS clãs (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, codigo TEXT UNIQUE, lider_id INTEGER, nivel INTEGER DEFAULT 1, xp INTEGER DEFAULT 0, data TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS clan_membros (clan_id INTEGER, usuario_id INTEGER UNIQUE, data TEXT, PRIMARY KEY(clan_id,usuario_id))''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS relatorios (id INTEGER PRIMARY KEY AUTOINCREMENT, tipo TEXT, data TEXT, conteudo TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS caixas_diarias (usuario_id INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY(usuario_id,data), FOREIGN KEY(usuario_id) REFERENCES usuarios(id))''')
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_caixas_diarias_usuario ON caixas_diarias(usuario_id, data)")
     cursor.execute('SELECT id FROM usuarios')
     for (uid,) in cursor.fetchall(): cursor.execute('INSERT OR IGNORE INTO economia_avancada(usuario_id) VALUES(?)',(uid,))
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_economia_usuario ON economia_avancada(usuario_id)")
@@ -128,7 +130,16 @@ def registrar(bot):
 
     @bot.message_handler(func=lambda m:m.text=='🎁 Caixa Surpresa')
     def caixa(m):
-        uid=m.from_user.id; garantir(uid); cursor.execute('SELECT caixas FROM economia_avancada WHERE usuario_id=?',(uid,)); q=cursor.fetchone()[0]
+        uid=m.from_user.id; garantir(uid)
+        hoje=time.strftime('%Y-%m-%d')
+        try:
+            cursor.execute('INSERT INTO caixas_diarias(usuario_id,data) VALUES(?,?)',(uid,hoje))
+            cursor.execute('UPDATE economia_avancada SET caixas=COALESCE(caixas,0)+1 WHERE usuario_id=?',(uid,))
+            conn.commit()
+            bot.send_message(uid,'🎁 <b>BAÚ DIÁRIO DISPONÍVEL!</b>\n\nVocê recebeu 1 caixa surpresa por acessar hoje. Abra para descobrir sua recompensa!',parse_mode='HTML')
+        except Exception:
+            conn.rollback()
+        cursor.execute('SELECT caixas FROM economia_avancada WHERE usuario_id=?',(uid,)); q=cursor.fetchone()[0]
         if q<=0: bot.send_message(uid,'🎁 Você não possui caixas surpresa. Complete missões e campanhas para receber.'); return
         markup=types.InlineKeyboardMarkup(); markup.add(types.InlineKeyboardButton('🎁 ABRIR CAIXA',callback_data='av_caixa'))
         bot.send_message(uid,f'🎁 Você possui <b>{q}</b> caixa(s).',parse_mode='HTML',reply_markup=markup)
