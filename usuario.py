@@ -23,6 +23,7 @@ from config import (
 )
 
 from antifraude import usuario_banido
+from gamificacao import xp_usuario, nivel_por_xp, indicacoes_aprovadas, ranking_periodo
 
 from indicacoes import (
     gerar_link,
@@ -244,6 +245,16 @@ def registrar(bot):
 📅 Cadastro:
 
 {dados[3]}
+
+━━━━━━━━━━━━━━━━━━━━
+
+📊 <b>SEU PROGRESSO</b>
+
+👥 Indicações aprovadas: <b>{indicacoes_aprovadas(message.from_user.id)}</b>
+⭐ XP: <b>{xp_usuario(message.from_user.id)[0]}</b>
+🏅 Nível: <b>{nivel_por_xp(xp_usuario(message.from_user.id)[0])[1]}</b>
+🔥 Sequência: <b>{xp_usuario(message.from_user.id)[2]} dia(s)</b>
+🛡️ Confiança: <b>{xp_usuario(message.from_user.id)[3]}%</b>
 """
 
         bot.send_message(
