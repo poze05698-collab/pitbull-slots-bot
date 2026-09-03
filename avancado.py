@@ -225,9 +225,33 @@ def registrar(bot):
     def clan_text(m):
         uid=m.from_user.id; acao=estados.pop(uid); v=(m.text or '').strip()
         if acao=='clan_create':
+            # Um usuário só pode pertencer a um clã. Verificamos antes de criar
+            # para evitar UNIQUE constraint failed em clan_membros.usuario_id.
+            cursor.execute('SELECT c.nome FROM clãs c JOIN clan_membros cm ON cm.clan_id=c.id WHERE cm.usuario_id=?',(uid,))
+            clan_existente = cursor.fetchone()
+            if clan_existente:
+                bot.send_message(uid, f'❌ Você já pertence ao clã <b>{clan_existente[0]}</b>.\n\nSaia do seu clã atual antes de criar outro.', parse_mode='HTML')
+                return
+
+            if not v:
+                bot.send_message(uid, '❌ Digite um nome válido para o clã.')
+                return
+
             codigo=f'CLAN-{uid%100000:05d}'; cursor.execute('SELECT 1 FROM clãs WHERE codigo=?',(codigo,));
             if cursor.fetchone(): codigo=f'CLAN-{uid}-{random.randint(1000,9999)}'
-            cursor.execute('INSERT INTO clãs(nome,codigo,lider_id,data) VALUES(?,?,?,?)',(v[:40],codigo,uid,data_atual())); cid=cursor.lastrowid; cursor.execute('INSERT INTO clan_membros(clan_id,usuario_id,data) VALUES(?,?,?)',(cid,uid,data_atual())); conn.commit(); bot.send_message(uid,f'⚔️ Clã criado!\n\n🔑 Código: <code>{codigo}</code>',parse_mode='HTML')
+
+            try:
+                cursor.execute('BEGIN')
+                cursor.execute('INSERT INTO clãs(nome,codigo,lider_id,data) VALUES(?,?,?,?)',(v[:40],codigo,uid,data_atual()))
+                cid=cursor.lastrowid
+                cursor.execute('INSERT INTO clan_membros(clan_id,usuario_id,data) VALUES(?,?,?)',(cid,uid,data_atual()))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                bot.send_message(uid, '❌ Não foi possível criar o clã agora. Tente novamente.')
+                return
+
+            bot.send_message(uid,f'⚔️ Clã criado!\n\n🔑 Código: <code>{codigo}</code>',parse_mode='HTML')
         else:
             cursor.execute('SELECT id,nome FROM clãs WHERE codigo=?',(v.upper(),)); r=cursor.fetchone()
             if not r: bot.send_message(uid,'❌ Código não encontrado.'); return
