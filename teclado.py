@@ -84,6 +84,10 @@ def menu_principal():
 
     teclado.row(
         "📖 Regras",
+        "📚 Como Usar"
+    )
+
+    teclado.row(
         "ℹ️ Informações"
     )
 
