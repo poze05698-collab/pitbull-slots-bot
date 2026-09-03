@@ -18,7 +18,7 @@ def menu_admin_por_cargo(user_id):
         ("📊 Dashboard","dashboard"),("🎁 Indicações","indicacoes"),("💸 Saques","saques"),("💰 Adicionar Saldo","saldo"),
         ("👥 Usuários","usuarios"),("🟢 Usuários Online","usuarios"),("🏆 Ranking","ranking"),("📢 Anunciar","anuncio"),("📊 Estatísticas","dashboard"),
         ("🔄 Reabrir Indicações","reabrir_indicacoes"),
-        ("🧠 Gamificação","gamificacao"),("🔥 Evento","evento"),("💎 Configurar VIP","vip"),("🛠️ Manutenção","manutencao"),
+        ("🧠 Gamificação","gamificacao"),("🎯 Gerenciar Missões","gamificacao"),("🔥 Evento","evento"),("💎 Configurar VIP","vip"),("🛠️ Manutenção","manutencao"),
         ("🎫 Tickets","tickets"),("🎟️ Códigos","codigos"),("🤝 Parceiros","parceiros"),("🚫 Banimentos","banimentos"),("⚙️ Configurações","configuracoes")
     ]
     for label, perm in itens:
