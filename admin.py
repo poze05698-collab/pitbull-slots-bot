@@ -34,7 +34,8 @@ from saques import (
 
 from antifraude import (
     banir_usuario,
-    desbanir_usuario
+    desbanir_usuario,
+    analisar_risco_saque
 )
 
 from vip import mostrar_admin_vip
@@ -543,6 +544,8 @@ Motivo:
 📅 Data:
 
 {saque[4]}
+
+{(lambda r: f"{r['emoji']} <b>RISCO: {r['risco']}</b> ({r['score']}/100)" + (f"\n⚠️ {', '.join(r['motivos'])}" if r['motivos'] else ""))(analisar_risco_saque(saque[1], saque[2]))}
 """,
 
                 parse_mode="HTML",
@@ -1323,6 +1326,22 @@ Envie um dos comandos abaixo:
         )
         novos = cursor.fetchone()[0]
 
+        try:
+            cursor.execute("SELECT COUNT(*) FROM missoes_conclusoes WHERE concluida_em LIKE ?", (data_hoje_prefixo(),))
+            missoes_hoje = cursor.fetchone()[0] or 0
+        except Exception:
+            missoes_hoje = 0
+        try:
+            cursor.execute("SELECT COUNT(*) FROM fraudes")
+            fraudes_total = cursor.fetchone()[0] or 0
+        except Exception:
+            fraudes_total = 0
+        try:
+            cursor.execute("SELECT COUNT(*) FROM usuarios WHERE ultimo_acesso LIKE ? AND banido=0", (data_hoje_prefixo(),))
+            ativos_hoje = cursor.fetchone()[0] or 0
+        except Exception:
+            ativos_hoje = 0
+
         bot.send_message(
             message.chat.id,
             f"""
@@ -1335,6 +1354,7 @@ Envie um dos comandos abaixo:
 🟢 Ativos: <b>{usuarios - banidos}</b>
 🚫 Banidos: <b>{banidos}</b>
 🆕 Novos hoje: <b>{novos}</b>
+🟢 Ativos hoje: <b>{ativos_hoje}</b>
 
 ━━━━━━━━━━━━━━━━━━━━
 
@@ -1348,6 +1368,12 @@ Envie um dos comandos abaixo:
 💸 <b>SAQUES</b>
 🟡 Pendentes: <b>{saques_pendentes}</b>
 💰 A pagar: <b>{dinheiro(saques_valor)}</b>
+
+━━━━━━━━━━━━━━━━━━━━
+
+🎯 <b>ENGAJAMENTO</b>
+🏆 Missões concluídas hoje: <b>{missoes_hoje}</b>
+🛡️ Ocorrências antifraude: <b>{fraudes_total}</b>
 
 ━━━━━━━━━━━━━━━━━━━━
 
