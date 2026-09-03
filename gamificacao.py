@@ -158,6 +158,24 @@ def registrar_atividade(usuario_id):
     verificar_conquistas(usuario_id)
 
 
+def adicionar_xp(usuario_id, quantidade, motivo=""):
+    """Adiciona XP de forma centralizada e atualiza o nível."""
+    try:
+        quantidade = int(quantidade)
+    except Exception:
+        quantidade = 0
+    if quantidade <= 0:
+        return xp_usuario(usuario_id)
+    garantir_usuario(usuario_id)
+    cursor.execute("SELECT xp FROM gamificacao WHERE usuario_id=?", (usuario_id,))
+    atual = int(cursor.fetchone()[0] or 0)
+    novo_xp = atual + quantidade
+    novo_nivel, _ = nivel_por_xp(novo_xp)
+    cursor.execute("UPDATE gamificacao SET xp=?, nivel=? WHERE usuario_id=?", (novo_xp, novo_nivel, usuario_id))
+    conn.commit()
+    return xp_usuario(usuario_id)
+
+
 def xp_usuario(usuario_id):
     garantir_usuario(usuario_id)
     cursor.execute(
@@ -396,6 +414,34 @@ def ranking_geral(limite=20):
         ORDER BY total DESC, g.xp DESC
         LIMIT ?
     """, (limite,))
+    return cursor.fetchall()
+
+
+def ranking_periodo(periodo="geral", limite=20):
+    """Ranking de indicações aprovadas no período informado."""
+    from datetime import datetime, timedelta
+    agora = datetime.now()
+    if periodo == "hoje":
+        inicio = agora.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif periodo == "semana":
+        inicio = (agora - timedelta(days=agora.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    elif periodo == "mes":
+        inicio = agora.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:
+        inicio = None
+
+    if inicio is None:
+        return ranking_geral(limite)
+
+    cursor.execute("""
+        SELECT u.id, u.nome, COUNT(i.id) AS total
+        FROM usuarios u
+        JOIN indicacoes i ON i.indicador_id=u.id AND i.status='APROVADO'
+        WHERE u.banido=0 AND i.data_aprovacao >= ?
+        GROUP BY u.id, u.nome
+        ORDER BY total DESC, u.id ASC
+        LIMIT ?
+    """, (inicio.strftime("%d/%m/%Y %H:%M:%S"), limite))
     return cursor.fetchall()
 
 
