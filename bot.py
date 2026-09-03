@@ -4,7 +4,6 @@ from telebot.handler_backends import CancelUpdate, ContinueHandling
 import logging
 import time as _time
 import socket
-import threading
 
 apihelper.ENABLE_MIDDLEWARE = True
 
@@ -129,69 +128,17 @@ bot = telebot.TeleBot(
     exception_handler=TratadorDeExcecoes(),
     suppress_middleware_excepions=True,
     threaded=True,
-    # 4 workers eram insuficientes: uma chamada lenta ao Telegram podia
-    # bloquear o atendimento dos demais usuários.
-    num_threads=24
+    # Número equilibrado de workers: suficiente para vários usuários sem
+    # criar concorrência excessiva no SQLite e na API do Telegram.
+    num_threads=16
 )
 
 # =====================================================
-# LIMPEZA PROFISSIONAL DAS MENSAGENS DE TELA
+# LIMPEZA AUTOMÁTICA DE MENSAGENS
 # =====================================================
-_MENSAGENS_TELA = {}
-_MENSAGENS_TELA_LOCK = threading.RLock()
-_MAX_MENSAGENS_TELA_POR_CHAT = 30
-
-_send_message_original = bot.send_message
-
-def _send_message_rastreado(chat_id, text, *args, **kwargs):
-    resultado = _send_message_original(chat_id, text, *args, **kwargs)
-    try:
-        if isinstance(chat_id, int) and chat_id > 0 and resultado is not None:
-            with _MENSAGENS_TELA_LOCK:
-                lista = _MENSAGENS_TELA.setdefault(chat_id, [])
-                lista.append(resultado.message_id)
-                if len(lista) > _MAX_MENSAGENS_TELA_POR_CHAT:
-                    del lista[:-_MAX_MENSAGENS_TELA_POR_CHAT]
-    except Exception:
-        pass
-    return resultado
-
-bot.send_message = _send_message_rastreado
-
-def _limpar_mensagens_usuario(chat_id):
-    if not isinstance(chat_id, int) or chat_id <= 0:
-        return
-    with _MENSAGENS_TELA_LOCK:
-        ids = list(_MENSAGENS_TELA.pop(chat_id, []))
-    for message_id in ids:
-        try:
-            bot.delete_message(chat_id, message_id)
-        except Exception:
-            pass
-
-_BOTOES_LIMPEZA_TELA = {
-    "👤 Perfil", "💰 Saldo", "🔗 Meu Link", "👥 Minhas Indicações",
-    "💳 PIX", "💸 Solicitar Saque", "🎫 Suporte", "📜 Histórico",
-    "🔔 Notificações", "🏆 Ranking", "🏅 Meu Nível", "🎯 Missões",
-    "👥 Equipe", "🏅 Conquistas", "🔥 Sequência", "🛡️ Confiança",
-    "🎁 Evento", "💎 VIP", "🎟️ Código Promocional", "🪙 Moedas",
-    "🎰 Roleta", "🎁 Caixa Surpresa", "🏪 Loja", "🎫 Raspadinha",
-    "🤝 Parceiros", "⚔️ Clã", "📖 Regras", "ℹ️ Informações", "⬅️ Menu"
-}
-
-@bot.middleware_handler(update_types=["message"])
-def limpar_tela_antes_de_nova_funcao(bot_instance, update):
-    try:
-        chat = getattr(update, "chat", None)
-        texto = getattr(update, "text", "") or ""
-        if chat and getattr(chat, "type", None) == "private" and texto in _BOTOES_LIMPEZA_TELA:
-            _limpar_mensagens_usuario(chat.id)
-            try:
-                bot.delete_message(chat.id, update.message_id)
-            except Exception:
-                pass
-    except Exception as erro:
-        print(f"ERRO AO LIMPAR MENSAGENS DE TELA: {erro}")
+# Removida de propósito. O bot não apaga mais mensagens de tela
+# automaticamente, evitando que teclados/botões desapareçam e evitando
+# erros de delete_message quando a mensagem já não existe.
 
 # =====================================================
 # BLOQUEIO GLOBAL DE MANUTENÇÃO
@@ -355,11 +302,6 @@ def handler_prioritario_manutencao_mensagem(message):
     chat = getattr(message, "chat", None)
     if not chat:
         return
-
-    try:
-        _limpar_mensagens_usuario(chat.id)
-    except Exception:
-        pass
 
     try:
         bot.send_message(
@@ -809,6 +751,7 @@ print("Bot iniciado com sucesso.")
 # infinity_polling já possui tratamento interno de exceções.
 # logger_level=None evita o traceback gigante do TeleBot para falhas
 # transitórias de rede; o TratadorDeExcecoes acima mantém o processo vivo.
+_atraso_polling = 3
 while True:
     try:
         print("🔄 Polling iniciado. Aguardando mensagens...")
@@ -819,20 +762,36 @@ while True:
             logger_level=None
         )
         print("⚠️ Polling terminou inesperadamente. Reiniciando...")
-        _time.sleep(3)
+        _time.sleep(_atraso_polling)
+        _atraso_polling = min(_atraso_polling * 2, 30)
 
     except KeyboardInterrupt:
         print("🛑 Bot encerrado manualmente.")
         break
 
     except Exception as _erro:
-        if _erro_de_rede_temporario(_erro):
+        texto_erro = str(_erro).lower()
+        codigo_erro = getattr(_erro, "error_code", None)
+
+        if codigo_erro == 409 or "conflict" in texto_erro:
+            # Evita loop agressivo quando outra instância do bot estiver
+            # temporariamente conectada ao mesmo token.
+            print("⚠️ Conflito de polling (409). Aguardando antes de tentar novamente...")
+            _time.sleep(10)
+            _atraso_polling = 10
+        elif codigo_erro == 429 or "too many requests" in texto_erro:
+            print("⚠️ Limite temporário do Telegram. Aguardando antes de tentar novamente...")
+            _time.sleep(15)
+            _atraso_polling = 15
+        elif _erro_de_rede_temporario(_erro):
             print("⚠️ Conexão com o Telegram perdida. Tentando novamente...")
-            _time.sleep(5)
+            _time.sleep(_atraso_polling)
+            _atraso_polling = min(_atraso_polling * 2, 30)
         else:
             registrar_erro("polling", _erro)
             print(
                 f"❌ Falha inesperada no polling: "
                 f"{type(_erro).__name__}: {_erro}"
             )
-            _time.sleep(5)
+            _time.sleep(_atraso_polling)
+            _atraso_polling = min(_atraso_polling * 2, 30)
