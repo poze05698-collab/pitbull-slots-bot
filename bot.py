@@ -5,6 +5,7 @@ import logging
 import time as _time
 import socket
 import os
+from missoes import registrar as registrar_missoes
 
 apihelper.ENABLE_MIDDLEWARE = True
 
@@ -413,6 +414,7 @@ registrar_manutencao(bot)
 registrar_usuario(bot)
 
 registrar_tickets(bot)
+registrar_missoes(bot)
 registrar_gamificacao(bot)
 registrar_avancado(bot)
 registrar_premium(bot)
