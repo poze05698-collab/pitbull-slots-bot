@@ -1,5 +1,4 @@
 from telebot import types
-import threading
 from datetime import datetime
 
 from database import conn, cursor
@@ -41,28 +40,15 @@ def saudacao_suporte(nome):
     return (
         f"{periodo}, {nome}! 👋\n\n"
         "🤝 <b>Seja bem-vindo(a) à Central de Suporte PIT BONUS BOT.</b>\n\n"
-        "Sou a assistente virtual e vou tentar resolver sua dúvida da forma mais rápida possível. "
-        "Você pode me enviar todas as informações do problema por aqui.\n\n"
-        "🤖 Posso ajudar com dúvidas sobre saldo, saque, Pix, indicações, convites e outras funções do bot.\n\n"
-        "Se o caso precisar de uma ação que somente a equipe possa realizar, seu atendimento será encaminhado para um administrador.\n\n"
+        "👨‍💼 Seu atendimento é 100% humanizado e será acompanhado pela nossa equipe. "
+        "Você pode enviar todas as informações do problema por aqui.\n\n"
+        "💬 A equipe poderá responder dúvidas sobre saldo, saque, Pix, indicações, convites e outras funções do bot.\n\n"
+        "⏳ Aguarde um administrador responder. Para agilizar o atendimento, envie todos os detalhes do problema na mesma conversa.\n\n"
         "💬 Pode enviar sua mensagem para começarmos."
     )
 
 
 def preparar_banco():
-
-    # IDs das mensagens do ticket no Telegram, para limpeza após encerramento.
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS ticket_mensagens_telegram (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ticket_id INTEGER NOT NULL,
-            chat_id INTEGER NOT NULL,
-            message_id INTEGER NOT NULL,
-            UNIQUE(ticket_id, chat_id, message_id)
-        )
-        """
-    )
 
     # Cria o histórico completo das mensagens.
     cursor.execute(
@@ -119,42 +105,8 @@ def registrar(bot):
     # AUXILIARES
     # =====================================================
 
-    # O suporte é 100% humano. As funções antigas da IA ficam como compatibilidade,
-    # mas não são chamadas pelo fluxo de tickets.
-    def atendimento_ia_em_background(ticket_id, usuario_id, categoria, mensagem):
-        return
-
-    def iniciar_atendimento_ia(ticket_id, usuario_id, categoria, mensagem):
-        return
-
-    def _fechar_ticket_por_inatividade(ticket_id, usuario_id):
-        try:
-            cursor.execute("UPDATE tickets SET status=?, fechado_em=? WHERE id=? AND status<>? AND assumido_por IS NULL", (STATUS_FECHADO, data_atual(), ticket_id, STATUS_FECHADO))
-            if cursor.rowcount == 0:
-                conn.commit(); return
-            conn.commit()
-            limpar_mensagens_ticket(ticket_id, usuario_id)
-            enviar_mensagem(usuario_id, f"🤖 <b>Central de Suporte — Ticket #{ticket_id}</b>\n\nComo não recebemos uma nova mensagem nos últimos 5 minutos, este atendimento foi encerrado automaticamente. 👋\n\nSe precisar de ajuda novamente, abra um novo chamado.", parse_mode="HTML", ticket_id=ticket_id)
-            try:
-                enviar_mensagem(usuario_id, "⭐ <b>Gostaria de avaliar o atendimento?</b>", parse_mode="HTML", reply_markup=teclado_avaliacao(ticket_id))
-            except Exception: pass
-        except Exception as erro:
-            print(f"ERRO AO FECHAR TICKET #{ticket_id} POR INATIVIDADE: {erro}")
-
-    def monitorar_inatividade():
-        import time
-        from datetime import timedelta
-        while True:
-            try:
-                cursor.execute("""SELECT t.id, t.usuario_id, tm.data FROM tickets t JOIN ticket_mensagens tm ON tm.id=(SELECT MAX(x.id) FROM ticket_mensagens x WHERE x.ticket_id=t.id) WHERE t.status IN (?, ?) AND t.assumido_por IS NULL AND tm.remetente='IA'""", (STATUS_ABERTO, STATUS_RESPONDIDO))
-                agora=datetime.now()
-                for ticket_id, usuario_id, data_msg in cursor.fetchall():
-                    try: momento=datetime.strptime(data_msg, "%d/%m/%Y %H:%M:%S")
-                    except Exception: continue
-                    if agora-momento >= timedelta(minutes=5): _fechar_ticket_por_inatividade(ticket_id, usuario_id)
-            except Exception as erro:
-                print(f"ERRO NO MONITOR DE INATIVIDADE DOS TICKETS: {erro}")
-            time.sleep(30)
+    # O suporte é 100% humano. Não existe resposta automática por IA
+    # nem encerramento automático por inatividade.
 
     def ticket_aberto(usuario_id):
 
@@ -247,53 +199,8 @@ def registrar(bot):
 
         conn.commit()
 
-    def registrar_mensagem_telegram(ticket_id, chat_id, message_id):
-        try:
-            cursor.execute(
-                "INSERT OR IGNORE INTO ticket_mensagens_telegram (ticket_id, chat_id, message_id) VALUES (?, ?, ?)",
-                (ticket_id, chat_id, message_id)
-            )
-            conn.commit()
-        except Exception as erro:
-            print(f"ERRO AO REGISTRAR MENSAGEM TELEGRAM DO TICKET #{ticket_id}: {erro}")
-
-    def enviar_mensagem(chat_id, texto, *args, ticket_id=None, **kwargs):
-        msg = bot.send_message(chat_id, texto, *args, **kwargs)
-        try:
-            tid = ticket_id
-            if tid is None and chat_id != ADMIN_ID:
-                ativo = ticket_aberto(chat_id)
-                if ativo:
-                    tid = ativo[0]
-            if tid is not None and chat_id != ADMIN_ID:
-                registrar_mensagem_telegram(tid, chat_id, msg.message_id)
-        except Exception as erro:
-            print(f"ERRO AO REGISTRAR ID DA MENSAGEM DO TICKET: {erro}")
-        return msg
-
-    def limpar_mensagens_ticket(ticket_id, chat_id):
-        try:
-            cursor.execute(
-                "SELECT message_id FROM ticket_mensagens_telegram WHERE ticket_id=? AND chat_id=?",
-                (ticket_id, chat_id)
-            )
-            ids=[row[0] for row in cursor.fetchall()]
-        except Exception:
-            ids=[]
-
-        for message_id in ids:
-            try:
-                bot.delete_message(chat_id, message_id)
-            except Exception as erro:
-                print(f"LIMPEZA TICKET #{ticket_id}: mensagem {message_id} não pôde ser apagada: {erro}")
-        try:
-            cursor.execute(
-                "DELETE FROM ticket_mensagens_telegram WHERE ticket_id=? AND chat_id=?",
-                (ticket_id, chat_id)
-            )
-            conn.commit()
-        except Exception:
-            pass
+    def enviar_mensagem(chat_id, texto, *args, **kwargs):
+        return bot.send_message(chat_id, texto, *args, **kwargs)
 
     def teclado_ticket(ticket_id, usuario_id):
 
@@ -635,7 +542,6 @@ Agora descreva seu problema.
             "USUARIO",
             mensagem
         )
-        registrar_mensagem_telegram(ticket_id, user_id, message.message_id)
 
         try:
 
@@ -717,7 +623,6 @@ Nossa equipe responderá neste mesmo atendimento.
             "USUARIO",
             mensagem
         )
-        registrar_mensagem_telegram(ticket_id, user_id, message.message_id)
 
         cursor.execute(
             """
@@ -1248,8 +1153,6 @@ Você pode escrever outra resposta.
 
         try:
 
-            limpar_mensagens_ticket(ticket_id, ticket[1])
-
             enviar_mensagem(
                 ticket[1],
                 f"""
@@ -1741,4 +1644,3 @@ Se quiser, você pode enviar um comentário para ajudar nossa equipe a melhorar.
             parse_mode="HTML"
         )
 
-    threading.Thread(target=monitorar_inatividade, daemon=True, name="ticket-inatividade").start()
