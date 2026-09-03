@@ -1,4 +1,5 @@
 from telebot import types
+import os
 
 from database import conn, cursor
 
@@ -606,37 +607,51 @@ Nossa equipe responderá o mais rápido possível.
 
             link = gerar_link(message.from_user.id)
 
-            bot.send_message(
-
-                message.chat.id,
-
-                f"""
+            texto_link = f"""
 🔗 <b>SEU LINK DE INDICAÇÃO</b>
 
 Convide seus amigos usando o link abaixo:
 
-{link}
+<code>{link}</code>
 
-📌 O seu amigo deve:
+📌 <b>COMO FUNCIONA</b>
 
-1️⃣ Abrir o bot pelo seu link.
+1️⃣ Envie seu link para um amigo.
 
-2️⃣ Clicar em /start.
+2️⃣ Seu amigo deve abrir o bot pelo seu link.
 
-3️⃣ Entrar no grupo.
+3️⃣ Clicar em /start.
 
-4️⃣ Clicar em:
+4️⃣ Entrar no grupo oficial.
 
-<b>✅ Já entrei no grupo</b>
+5️⃣ Clicar em <b>✅ Já entrei no grupo</b>.
 
-5️⃣ Aguardar a aprovação do administrador.
+6️⃣ Após a validação, a indicação será processada conforme as regras do sistema.
 
-💰 Após a aprovação você receberá sua recompensa.
-""",
+💰 <b>Compartilhe seu link e convide mais pessoas!</b>
+"""
 
-                parse_mode="HTML"
-
+            foto_meu_link = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "assets",
+                "meu_link.jpg"
             )
+
+            try:
+                with open(foto_meu_link, "rb") as foto:
+                    bot.send_photo(
+                        message.chat.id,
+                        foto,
+                        caption=texto_link,
+                        parse_mode="HTML"
+                    )
+            except (FileNotFoundError, OSError) as erro_foto:
+                print(f"⚠️ FOTO DE MEU LINK NÃO ENCONTRADA: {erro_foto}")
+                bot.send_message(
+                    message.chat.id,
+                    texto_link,
+                    parse_mode="HTML"
+                )
 
         except Exception as erro:
 
