@@ -22,14 +22,16 @@ def _nova_conexao():
     conexao = sqlite3.connect(
         str(DB_PATH),
         check_same_thread=True,
-        timeout=5
+        timeout=15
     )
-    conexao.execute("PRAGMA busy_timeout=5000")
+    conexao.execute("PRAGMA journal_mode=WAL")
+    conexao.execute("PRAGMA busy_timeout=15000")
     conexao.execute("PRAGMA synchronous=NORMAL")
     conexao.execute("PRAGMA foreign_keys=ON")
     conexao.execute("PRAGMA temp_store=MEMORY")
     conexao.execute("PRAGMA cache_size=-16000")
     conexao.execute("PRAGMA wal_autocheckpoint=1000")
+    conexao.execute("PRAGMA mmap_size=268435456")
     return conexao
 
 
@@ -466,7 +468,7 @@ _bootstrap.commit()
 try:
     _bootstrap_cursor.execute("PRAGMA journal_mode=WAL")
     _bootstrap_cursor.execute("PRAGMA synchronous=NORMAL")
-    _bootstrap_cursor.execute("PRAGMA busy_timeout=5000")
+    _bootstrap_cursor.execute("PRAGMA busy_timeout=15000")
 except Exception:
     pass
 _bootstrap.commit()
