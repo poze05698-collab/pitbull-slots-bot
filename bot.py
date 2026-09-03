@@ -4,6 +4,7 @@ from telebot.handler_backends import CancelUpdate, ContinueHandling
 import logging
 import time as _time
 import socket
+import os
 
 apihelper.ENABLE_MIDDLEWARE = True
 
@@ -514,12 +515,31 @@ Para validar sua indicação:
 Após a aprovação, o saldo será liberado.
 """
 
-            bot.send_message(
-                message.chat.id,
-                texto_start,
-                reply_markup=markup,
-                parse_mode="HTML"
+            # Primeiro acesso/usuário ainda não confirmado no grupo:
+            # envia a arte de orientação junto com os botões.
+            foto_primeiro_acesso = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "assets",
+                "primeiro_acesso.jpg"
             )
+
+            try:
+                with open(foto_primeiro_acesso, "rb") as foto:
+                    bot.send_photo(
+                        message.chat.id,
+                        foto,
+                        caption=texto_start,
+                        reply_markup=markup,
+                        parse_mode="HTML"
+                    )
+            except (FileNotFoundError, OSError) as erro_foto:
+                print(f"⚠️ FOTO DE PRIMEIRO ACESSO NÃO ENCONTRADA: {erro_foto}")
+                bot.send_message(
+                    message.chat.id,
+                    texto_start,
+                    reply_markup=markup,
+                    parse_mode="HTML"
+                )
 
         elif mensagem_status:
             bot.send_message(message.chat.id, mensagem_status, parse_mode="HTML")
@@ -527,7 +547,16 @@ Após a aprovação, o saldo será liberado.
         else:
             bot.send_message(
                 message.chat.id,
-                "🎉 <b>Bem-vindo de volta!</b>\n\nSua indicação já foi processada.\n\nVocê não precisa entrar no grupo novamente.",
+                "🎉 <b>BEM-VINDO DE VOLTA AO PIT BONUS BOT!</b> 🎉\n\n"
+                "🚀 <b>Seu acesso está liberado!</b>\n\n"
+                "💰 Consulte seu saldo\n"
+                "👥 Acompanhe suas indicações\n"
+                "🔗 Compartilhe seu link e convide amigos\n"
+                "💸 Solicite seus saques\n"
+                "💎 Aproveite todos os recursos disponíveis\n\n"
+                "🔥 <b>Continue participando e aproveite todas as funções do bot!</b>\n\n"
+                "⚠️ <b>IMPORTANTE:</b> permaneça no grupo oficial para continuar com as funções ativas e manter seu acesso liberado.\n\n"
+                "👇 <b>Escolha uma opção no menu abaixo.</b>",
                 parse_mode="HTML"
             )
 
