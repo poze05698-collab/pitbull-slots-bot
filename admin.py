@@ -702,111 +702,216 @@ Motivo:
         if not admin_autorizado(message.from_user.id):
             return
 
-        cursor.execute(
-            """
-            SELECT
-                id,
-                nome,
-                username,
-                saldo,
-                banido,
-                data_cadastro
-            FROM usuarios
-            ORDER BY id DESC
-            LIMIT 30
-            """
-        )
+        _mostrar_lista_usuarios(bot, message.chat.id, 0)
 
-        usuarios = cursor.fetchall()
 
-        if not usuarios:
-
-            bot.send_message(
-                message.chat.id,
-                "📭 Nenhum usuário cadastrado."
-            )
-
-            return
-
-        cursor.execute(
-            "SELECT COUNT(*) FROM usuarios"
-        )
-
-        total = cursor.fetchone()[0]
+    def _mostrar_lista_usuarios(bot, chat_id, pagina=0, message_id=None):
+        """Mostra usuários em páginas, evitando uma lista gigante no painel."""
+        POR_PAGINA = 10
 
         try:
-            bot.send_message(
-                message.chat.id,
-                f"""
-👥 <b>GERENCIAMENTO DE USUÁRIOS</b>
+            cursor.execute("SELECT COUNT(*) FROM usuarios")
+            total = cursor.fetchone()[0] or 0
 
-📊 Total cadastrado: <b>{total}</b>
+            cursor.execute("SELECT COUNT(*) FROM usuarios WHERE banido=0")
+            ativos = cursor.fetchone()[0] or 0
 
-Mostrando os últimos 30 usuários.
-""",
-                parse_mode="HTML"
+            cursor.execute("SELECT COUNT(*) FROM usuarios WHERE banido=1")
+            banidos = cursor.fetchone()[0] or 0
+
+            total_paginas = max(1, (total + POR_PAGINA - 1) // POR_PAGINA)
+            pagina = max(0, min(int(pagina), total_paginas - 1))
+            offset = pagina * POR_PAGINA
+
+            cursor.execute(
+                """
+                SELECT id, nome, username, saldo, banido, data_cadastro
+                FROM usuarios
+                ORDER BY id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (POR_PAGINA, offset)
             )
-        except Exception as erro:
-            print(f"ERRO AO ENVIAR LISTA DE USUÁRIOS: {erro}")
-            return
+            usuarios = cursor.fetchall()
 
-        for usuario_id, nome, username, saldo, banido, data_cadastro in usuarios:
-
-            status = "🚫 BANIDO" if banido else "🟢 ATIVO"
+            texto = [
+                "👥 <b>GERENCIAMENTO DE USUÁRIOS</b>",
+                "",
+                f"📊 Total: <b>{total}</b>  |  🟢 Ativos: <b>{ativos}</b>  |  🚫 Banidos: <b>{banidos}</b>",
+                f"📄 Página <b>{pagina + 1}</b> de <b>{total_paginas}</b>",
+                "",
+            ]
 
             markup = types.InlineKeyboardMarkup()
 
-            if banido:
-
-                markup.row(
-                    types.InlineKeyboardButton(
-                        "✅ Desbanir",
-                        callback_data=f"usuario_unban:{usuario_id}"
-                    )
-                )
-
+            if not usuarios:
+                texto.append("📭 Nenhum usuário cadastrado.")
             else:
-
-                markup.row(
-                    types.InlineKeyboardButton(
-                        "🚫 Banir",
-                        callback_data=f"usuario_ban:{usuario_id}"
+                for uid, nome, username, saldo, banido, data_cadastro in usuarios:
+                    nome_exibicao = (nome or "Sem nome").strip()
+                    if len(nome_exibicao) > 24:
+                        nome_exibicao = nome_exibicao[:21] + "..."
+                    user_exibicao = f"@{username}" if username else "sem @username"
+                    if len(user_exibicao) > 20:
+                        user_exibicao = user_exibicao[:17] + "..."
+                    status = "🚫" if banido else "🟢"
+                    texto.append(
+                        f"{status} <b>{nome_exibicao}</b> — <code>{uid}</code>\n"
+                        f"   {user_exibicao} • {dinheiro(saldo or 0)}"
                     )
+                    markup.row(types.InlineKeyboardButton(
+                        f"👤 {nome_exibicao[:22]}",
+                        callback_data=f"usuario_detalhe:{uid}:{pagina}"
+                    ))
+
+            botoes_navegacao = []
+            if pagina > 0:
+                botoes_navegacao.append(types.InlineKeyboardButton(
+                    "⬅️ Anterior", callback_data=f"usuarios_pag:{pagina - 1}"
+                ))
+            if pagina < total_paginas - 1:
+                botoes_navegacao.append(types.InlineKeyboardButton(
+                    "Próxima ➡️", callback_data=f"usuarios_pag:{pagina + 1}"
+                ))
+            if botoes_navegacao:
+                markup.row(*botoes_navegacao)
+
+            markup.row(types.InlineKeyboardButton(
+                "🔄 Atualizar lista", callback_data=f"usuarios_pag:{pagina}"
+            ))
+
+            if message_id is None:
+                bot.send_message(
+                    chat_id,
+                    "\n".join(texto),
+                    parse_mode="HTML",
+                    reply_markup=markup
+                )
+            else:
+                bot.edit_message_text(
+                    "\n".join(texto),
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    parse_mode="HTML",
+                    reply_markup=markup
                 )
 
-            markup.row(
-                types.InlineKeyboardButton(
-                    "🔄 Atualizar",
-                    callback_data=f"usuario_atualizar:{usuario_id}"
+        except Exception as erro:
+            print(f"ERRO AO MOSTRAR LISTA DE USUÁRIOS: {erro}")
+            if message_id is None:
+                bot.send_message(chat_id, "❌ Não foi possível carregar a lista de usuários.")
+            else:
+                try:
+                    bot.answer_callback_query(message_id, "Erro ao atualizar a lista.", show_alert=True)
+                except Exception:
+                    pass
+
+
+    def _mostrar_detalhes_usuario(bot, chat_id, message_id, usuario_id, pagina=0):
+        cursor.execute(
+            """
+            SELECT id, nome, username, saldo, banido, data_cadastro, ultimo_acesso
+            FROM usuarios
+            WHERE id=?
+            """,
+            (usuario_id,)
+        )
+        usuario = cursor.fetchone()
+
+        if not usuario:
+            try:
+                bot.edit_message_text(
+                    "❌ Usuário não encontrado.",
+                    chat_id=chat_id,
+                    message_id=message_id
                 )
-            )
+            except Exception:
+                pass
+            return
 
-            bot.send_message(
-                message.chat.id,
-                f"""
-👤 <b>USUÁRIO</b>
+        uid, nome, username, saldo, banido, data_cadastro, ultimo_acesso = usuario
+        status = "🚫 <b>BANIDO</b>" if banido else "🟢 <b>ATIVO</b>"
+        username_txt = f"@{username}" if username else "Sem username"
 
-🆔 ID:
-<code>{usuario_id}</code>
+        markup = types.InlineKeyboardMarkup()
+        if banido:
+            markup.row(types.InlineKeyboardButton(
+                "✅ Desbanir", callback_data=f"usuario_unban:{uid}"
+            ))
+        else:
+            markup.row(types.InlineKeyboardButton(
+                "🚫 Banir", callback_data=f"usuario_ban:{uid}"
+            ))
+        markup.row(types.InlineKeyboardButton(
+            "🔄 Atualizar", callback_data=f"usuario_atualizar:{uid}"
+        ))
+        markup.row(types.InlineKeyboardButton(
+            "⬅️ Voltar à lista", callback_data=f"usuarios_voltar:{pagina}"
+        ))
 
-👤 Nome:
-{nome or "Sem nome"}
+        texto = (
+            "👤 <b>DETALHES DO USUÁRIO</b>\n\n"
+            f"🆔 ID: <code>{uid}</code>\n"
+            f"👤 Nome: {nome or 'Sem nome'}\n"
+            f"📱 Username: {username_txt}\n"
+            f"💰 Saldo: {dinheiro(saldo or 0)}\n"
+            f"📌 Status: {status}\n"
+            f"📅 Cadastro: {data_cadastro or 'Não informado'}\n"
+            f"🕐 Último acesso: {ultimo_acesso or 'Não informado'}"
+        )
 
-📱 Username:
-@{username if username else "Sem username"}
-
-💰 Saldo:
-{dinheiro(saldo or 0)}
-
-📌 Status:
-{status}
-
-📅 Cadastro:
-{data_cadastro}
-""",
+        try:
+            bot.edit_message_text(
+                texto,
+                chat_id=chat_id,
+                message_id=message_id,
                 parse_mode="HTML",
                 reply_markup=markup
             )
+        except Exception as erro:
+            print(f"ERRO AO MOSTRAR DETALHES DO USUÁRIO {uid}: {erro}")
+
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith("usuarios_pag:"))
+    def callback_usuarios_pag(call):
+        if not admin_autorizado(call.from_user.id):
+            bot.answer_callback_query(call.id, "Sem permissão.", show_alert=True)
+            return
+        try:
+            pagina = int(call.data.split(":", 1)[1])
+        except Exception:
+            pagina = 0
+        _mostrar_lista_usuarios(bot, call.message.chat.id, pagina, call.message.message_id)
+        bot.answer_callback_query(call.id)
+
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith("usuario_detalhe:"))
+    def callback_detalhe_usuario(call):
+        if not admin_autorizado(call.from_user.id):
+            bot.answer_callback_query(call.id, "Sem permissão.", show_alert=True)
+            return
+        try:
+            _, uid, pagina = call.data.split(":")
+            uid = int(uid)
+            pagina = int(pagina)
+        except Exception:
+            bot.answer_callback_query(call.id, "Dados inválidos.", show_alert=True)
+            return
+        _mostrar_detalhes_usuario(bot, call.message.chat.id, call.message.message_id, uid, pagina)
+        bot.answer_callback_query(call.id)
+
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith("usuarios_voltar:"))
+    def callback_usuarios_voltar(call):
+        if not admin_autorizado(call.from_user.id):
+            bot.answer_callback_query(call.id, "Sem permissão.", show_alert=True)
+            return
+        try:
+            pagina = int(call.data.split(":", 1)[1])
+        except Exception:
+            pagina = 0
+        _mostrar_lista_usuarios(bot, call.message.chat.id, pagina, call.message.message_id)
+        bot.answer_callback_query(call.id)
 
 
     @bot.callback_query_handler(
@@ -822,9 +927,7 @@ Mostrando os últimos 30 usuários.
             )
             return
 
-        usuario_id = int(
-            call.data.split(":")[1]
-        )
+        usuario_id = int(call.data.split(":")[1])
 
         if usuario_id == ADMIN_ID:
             bot.answer_callback_query(
@@ -837,12 +940,7 @@ Mostrando os últimos 30 usuários.
         sucesso = banir_usuario(usuario_id)
 
         if sucesso:
-
-            bot.answer_callback_query(
-                call.id,
-                "Usuário banido."
-            )
-
+            bot.answer_callback_query(call.id, "Usuário banido.")
             try:
                 bot.send_message(
                     usuario_id,
@@ -851,21 +949,9 @@ Mostrando os últimos 30 usuários.
                 )
             except Exception:
                 pass
-
-            atualizar_card_usuario(
-                bot,
-                call.message.chat.id,
-                call.message.message_id,
-                usuario_id
-            )
-
+            atualizar_card_usuario(bot, call.message.chat.id, call.message.message_id, usuario_id)
         else:
-
-            bot.answer_callback_query(
-                call.id,
-                "Não foi possível banir.",
-                show_alert=True
-            )
+            bot.answer_callback_query(call.id, "Não foi possível banir.", show_alert=True)
 
 
     @bot.callback_query_handler(
@@ -874,26 +960,14 @@ Mostrando os últimos 30 usuários.
     def callback_unban_usuario(call):
 
         if not admin_autorizado(call.from_user.id):
-            bot.answer_callback_query(
-                call.id,
-                "Sem permissão.",
-                show_alert=True
-            )
+            bot.answer_callback_query(call.id, "Sem permissão.", show_alert=True)
             return
 
-        usuario_id = int(
-            call.data.split(":")[1]
-        )
-
+        usuario_id = int(call.data.split(":")[1])
         sucesso = desbanir_usuario(usuario_id)
 
         if sucesso:
-
-            bot.answer_callback_query(
-                call.id,
-                "Usuário desbanido."
-            )
-
+            bot.answer_callback_query(call.id, "Usuário desbanido.")
             try:
                 bot.send_message(
                     usuario_id,
@@ -902,21 +976,9 @@ Mostrando os últimos 30 usuários.
                 )
             except Exception:
                 pass
-
-            atualizar_card_usuario(
-                bot,
-                call.message.chat.id,
-                call.message.message_id,
-                usuario_id
-            )
-
+            atualizar_card_usuario(bot, call.message.chat.id, call.message.message_id, usuario_id)
         else:
-
-            bot.answer_callback_query(
-                call.id,
-                "Não foi possível desbanir.",
-                show_alert=True
-            )
+            bot.answer_callback_query(call.id, "Não foi possível desbanir.", show_alert=True)
 
 
     @bot.callback_query_handler(
@@ -925,120 +987,57 @@ Mostrando os últimos 30 usuários.
     def callback_atualizar_usuario(call):
 
         if not admin_autorizado(call.from_user.id):
-            bot.answer_callback_query(
-                call.id,
-                "Sem permissão.",
-                show_alert=True
-            )
+            bot.answer_callback_query(call.id, "Sem permissão.", show_alert=True)
             return
 
-        usuario_id = int(
-            call.data.split(":")[1]
-        )
-
-        atualizar_card_usuario(
-            bot,
-            call.message.chat.id,
-            call.message.message_id,
-            usuario_id
-        )
-
-        bot.answer_callback_query(
-            call.id,
-            "Dados atualizados."
-        )
+        usuario_id = int(call.data.split(":")[1])
+        atualizar_card_usuario(bot, call.message.chat.id, call.message.message_id, usuario_id)
+        bot.answer_callback_query(call.id, "Dados atualizados.")
 
 
-    def atualizar_card_usuario(
-        bot,
-        chat_id,
-        message_id,
-        usuario_id
-    ):
-
+    def atualizar_card_usuario(bot, chat_id, message_id, usuario_id):
         cursor.execute(
             """
-            SELECT
-                id,
-                nome,
-                username,
-                saldo,
-                banido,
-                data_cadastro
+            SELECT id, nome, username, saldo, banido, data_cadastro, ultimo_acesso
             FROM usuarios
             WHERE id=?
             """,
             (usuario_id,)
         )
-
         usuario = cursor.fetchone()
-
         if not usuario:
             return
 
-        uid, nome, username, saldo, banido, data_cadastro = usuario
-
-        status = "🚫 BANIDO" if banido else "🟢 ATIVO"
+        uid, nome, username, saldo, banido, data_cadastro, ultimo_acesso = usuario
+        status = "🚫 <b>BANIDO</b>" if banido else "🟢 <b>ATIVO</b>"
+        username_txt = f"@{username}" if username else "Sem username"
 
         markup = types.InlineKeyboardMarkup()
-
         if banido:
-
-            markup.row(
-                types.InlineKeyboardButton(
-                    "✅ Desbanir",
-                    callback_data=f"usuario_unban:{uid}"
-                )
-            )
-
+            markup.row(types.InlineKeyboardButton("✅ Desbanir", callback_data=f"usuario_unban:{uid}"))
         else:
-
-            markup.row(
-                types.InlineKeyboardButton(
-                    "🚫 Banir",
-                    callback_data=f"usuario_ban:{uid}"
-                )
-            )
-
-        markup.row(
-            types.InlineKeyboardButton(
-                "🔄 Atualizar",
-                callback_data=f"usuario_atualizar:{uid}"
-            )
-        )
+            markup.row(types.InlineKeyboardButton("🚫 Banir", callback_data=f"usuario_ban:{uid}"))
+        markup.row(types.InlineKeyboardButton("🔄 Atualizar", callback_data=f"usuario_atualizar:{uid}"))
+        markup.row(types.InlineKeyboardButton("⬅️ Voltar à lista", callback_data="usuarios_voltar:0"))
 
         try:
-
             bot.edit_message_text(
-                f"""
-👤 <b>USUÁRIO</b>
-
-🆔 ID:
-<code>{uid}</code>
-
-👤 Nome:
-{nome or "Sem nome"}
-
-📱 Username:
-@{username if username else "Sem username"}
-
-💰 Saldo:
-{dinheiro(saldo or 0)}
-
-📌 Status:
-{status}
-
-📅 Cadastro:
-{data_cadastro}
-""",
+                "👤 <b>DETALHES DO USUÁRIO</b>\n\n"
+                f"🆔 ID: <code>{uid}</code>\n"
+                f"👤 Nome: {nome or 'Sem nome'}\n"
+                f"📱 Username: {username_txt}\n"
+                f"💰 Saldo: {dinheiro(saldo or 0)}\n"
+                f"📌 Status: {status}\n"
+                f"📅 Cadastro: {data_cadastro or 'Não informado'}\n"
+                f"🕐 Último acesso: {ultimo_acesso or 'Não informado'}",
                 chat_id=chat_id,
                 message_id=message_id,
                 parse_mode="HTML",
                 reply_markup=markup
             )
+        except Exception as erro:
+            print(f"ERRO AO ATUALIZAR CARD DO USUÁRIO {uid}: {erro}")
 
-        except Exception:
-            pass
 
     # ==========================================
     # BANIMENTOS
