@@ -129,6 +129,7 @@ def menu_admin():
 
     teclado.row(
         "🧠 Gamificação",
+        "🎯 Gerenciar Missões",
         "⚙️ Configurações Avançadas"
     )
 
