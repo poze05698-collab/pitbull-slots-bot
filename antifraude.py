@@ -168,3 +168,47 @@ def desbanir_usuario(usuario_id):
     conn.commit()
 
     return True
+
+
+def analisar_risco_saque(usuario_id, valor=0):
+    """Calcula um risco simples e explicável para ajudar o admin a revisar saques."""
+    try:
+        valor = float(valor or 0)
+    except Exception:
+        valor = 0.0
+
+    cursor.execute("SELECT confianca FROM gamificacao WHERE usuario_id=?", (usuario_id,))
+    row = cursor.fetchone()
+    confianca = int(row[0]) if row and row[0] is not None else 50
+
+    cursor.execute("SELECT COUNT(*) FROM indicacoes WHERE indicador_id=? AND status='APROVADO'", (usuario_id,))
+    aprovadas = cursor.fetchone()[0] or 0
+    cursor.execute("SELECT COUNT(*) FROM indicacoes WHERE indicador_id=? AND status='REJEITADO'", (usuario_id,))
+    rejeitadas = cursor.fetchone()[0] or 0
+    cursor.execute("SELECT COUNT(*) FROM fraudes WHERE usuario_id=? OR indicador_id=?", (usuario_id, usuario_id))
+    fraudes = cursor.fetchone()[0] or 0
+    cursor.execute("SELECT COUNT(*) FROM saques WHERE usuario_id=? AND status IN ('PAGO','APROVADO')", (usuario_id,))
+    saques_pagos = cursor.fetchone()[0] or 0
+
+    pontos = 0
+    motivos = []
+    if confianca < 40:
+        pontos += 35; motivos.append("confiança baixa")
+    elif confianca < 60:
+        pontos += 15; motivos.append("confiança média")
+    if rejeitadas >= 3:
+        pontos += 20; motivos.append("muitas indicações rejeitadas")
+    elif rejeitadas >= 1:
+        pontos += 8; motivos.append("há indicação rejeitada")
+    if fraudes:
+        pontos += min(40, fraudes * 20); motivos.append("ocorrência antifraude")
+    if aprovadas == 0:
+        pontos += 15; motivos.append("nenhuma indicação aprovada")
+    if valor >= 100:
+        pontos += 10; motivos.append("saque de valor elevado")
+    if saques_pagos >= 3 and fraudes == 0:
+        pontos = max(0, pontos - 10)
+
+    risco = "BAIXO" if pontos < 25 else "MÉDIO" if pontos < 55 else "ALTO"
+    emoji = "🟢" if risco == "BAIXO" else "🟡" if risco == "MÉDIO" else "🔴"
+    return {"score": min(100, pontos), "risco": risco, "emoji": emoji, "motivos": motivos, "confianca": confianca, "aprovadas": aprovadas, "rejeitadas": rejeitadas, "fraudes": fraudes}
