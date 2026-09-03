@@ -234,7 +234,7 @@ def aprovar_indicacao(indicacao_id, admin_id):
     if grupo_confirmado != 1:
         return False, "O usuário ainda não entrou no grupo."
 
-    from gamificacao import recompensa_dinamica, recalcular_confianca, verificar_conquistas
+    from gamificacao import recompensa_dinamica, recalcular_confianca, verificar_conquistas, adicionar_xp
     from avancado import add_coins, dar_vip_xp
     valor_pago, nome_evento = recompensa_dinamica(valor)
 
@@ -296,6 +296,7 @@ def aprovar_indicacao(indicacao_id, admin_id):
     try:
         add_coins(indicador_id, 5)
         dar_vip_xp(indicador_id, 10)
+        adicionar_xp(indicador_id, 5, "Indicação aprovada")
         recalcular_confianca(indicador_id)
         verificar_conquistas(indicador_id)
         try:
@@ -395,7 +396,7 @@ def reaprovar_indicacao(indicacao_id, admin_id):
     if grupo_confirmado != 1:
         return False, "O usuário ainda não está confirmado no grupo."
 
-    from gamificacao import recompensa_dinamica, recalcular_confianca, verificar_conquistas
+    from gamificacao import recompensa_dinamica, recalcular_confianca, verificar_conquistas, adicionar_xp
     from avancado import add_coins, dar_vip_xp
 
     valor_pago, nome_evento = recompensa_dinamica(valor)
@@ -463,6 +464,7 @@ def reaprovar_indicacao(indicacao_id, admin_id):
     try:
         add_coins(indicador_id, 5)
         dar_vip_xp(indicador_id, 10)
+        adicionar_xp(indicador_id, 5, "Indicação aprovada")
         recalcular_confianca(indicador_id)
         verificar_conquistas(indicador_id)
     except Exception as erro:
