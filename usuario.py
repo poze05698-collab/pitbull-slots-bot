@@ -394,6 +394,175 @@ Fraudes resultam em banimento.
     # INFORMAÇÕES
     # ==========================================
 
+    @bot.message_handler(func=lambda m: m.text == "📚 Como Usar")
+    def como_usar(message):
+        if usuario_banido(message.from_user.id):
+            bot.send_message(message.chat.id, "❌ Você está bloqueado.")
+            return
+
+        bot.send_message(
+            message.chat.id,
+            """📚 <b>COMO USAR O PIT BONUS BOT</b>
+
+"""
+            """👤 <b>PERFIL</b>
+"""
+            """Mostra seus dados cadastrados e informações da sua conta.
+
+"""
+            """💰 <b>SALDO</b>
+"""
+            """Mostra seu saldo disponível e valores pendentes, quando houver.
+
+"""
+            """🔗 <b>MEU LINK</b>
+"""
+            """Gera/mostra seu link pessoal de indicação. Compartilhe o link para convidar novos usuários.
+
+"""
+            """👥 <b>MINHAS INDICAÇÕES</b>
+"""
+            """Mostra as pessoas que entraram pelo seu convite, o status da indicação, entrada no grupo e recompensa.
+
+"""
+            """💳 <b>PIX</b>
+"""
+            """Cadastre ou atualize sua chave Pix para receber saques. Confira a chave antes de solicitar um pagamento.
+
+"""
+            """💸 <b>SOLICITAR SAQUE</b>
+"""
+            """Solicita o pagamento do saldo disponível quando você atingir o valor mínimo configurado e tiver uma chave Pix cadastrada. O saque fica sujeito ao processamento da equipe.
+
+"""
+            """📜 <b>HISTÓRICO</b>
+"""
+            """Consulta registros das movimentações e ações da sua conta.
+
+"""
+            """🔔 <b>NOTIFICAÇÕES</b>
+"""
+            """Exibe avisos enviados pelo sistema e pela equipe.
+
+"""
+            """🏆 <b>RANKING</b>
+"""
+            """Mostra a classificação dos usuários conforme os critérios do sistema.
+
+"""
+            """🏅 <b>MEU NÍVEL</b>
+"""
+            """Mostra seu nível, XP e progresso de gamificação.
+
+"""
+            """🎯 <b>MISSÕES</b>
+"""
+            """Confira missões disponíveis e recompensas quando forem concluídas.
+
+"""
+            """👥 <b>EQUIPE</b>
+"""
+            """Permite consultar/criar sua equipe e acompanhar a participação dos membros conforme as regras do sistema.
+
+"""
+            """🏅 <b>CONQUISTAS</b>
+"""
+            """Mostra conquistas que você já desbloqueou e seu progresso.
+
+"""
+            """🔥 <b>SEQUÊNCIA</b>
+"""
+            """Mostra sua sequência de atividade e o progresso relacionado a ela.
+
+"""
+            """🛡️ <b>CONFIANÇA</b>
+"""
+            """Exibe o indicador de confiança calculado pelo sistema.
+
+"""
+            """🎁 <b>EVENTO</b>
+"""
+            """Quando houver um evento ativo, mostra as condições e benefícios disponíveis.
+
+"""
+            """💎 <b>VIP</b>
+"""
+            """Área de benefícios VIP. Quando a compra online estiver disponível, o pagamento Pix é criado pelo Mercado Pago e, após a confirmação, o sistema libera o código para resgate.
+
+"""
+            """🎟️ <b>CÓDIGO PROMOCIONAL</b>
+"""
+            """Use códigos fornecidos pela equipe para receber o benefício correspondente, quando disponíveis. Cada código segue as regras de uso definidas pelo administrador.
+
+"""
+            """🪙 <b>MOEDAS</b>
+"""
+            """Consulta suas moedas da economia interna do bot.
+
+"""
+            """🎰 <b>ROLETA</b>
+"""
+            """Utiliza a roleta quando você tiver acesso e tentativas disponíveis. Os resultados seguem as regras configuradas no sistema.
+
+"""
+            """🎁 <b>CAIXA SURPRESA</b>
+"""
+            """Permite abrir caixas quando houver disponibilidade, seguindo os limites e recompensas configurados.
+
+"""
+            """🏪 <b>LOJA</b>
+"""
+            """Consulta os itens/recompensas disponíveis para compra com a economia interna.
+
+"""
+            """🎫 <b>RASPADINHA</b>
+"""
+            """Usa uma raspadinha quando você tiver uma tentativa disponível. A recompensa depende do resultado e das regras atuais.
+
+"""
+            """🤝 <b>PARCEIROS</b>
+"""
+            """Exibe parceiros e campanhas disponibilizados pela equipe.
+
+"""
+            """⚔️ <b>CLÃ</b>
+"""
+            """Permite participar do sistema de clãs, conforme as regras e disponibilidade.
+
+"""
+            """🎫 <b>SUPORTE</b>
+"""
+            """Abre um atendimento <b>100% humano</b>. Escolha a categoria e descreva o problema. Um administrador da equipe poderá responder pelo ticket.
+
+"""
+            """📖 <b>REGRAS</b>
+"""
+            """Mostra as regras oficiais que devem ser seguidas para utilizar o bot.
+
+"""
+            """ℹ️ <b>INFORMAÇÕES</b>
+"""
+            """Mostra informações gerais e orientações do sistema.
+
+"""
+            """🏠 <b>MENU</b>
+"""
+            """Use <b>⬅️ Menu</b> para voltar ao menu principal a qualquer momento.
+
+"""
+            """⚠️ <b>IMPORTANTE</b>
+"""
+"""O grupo oficial pode ser obrigatório para liberar as funções. Não tente usar contas ou métodos para burlar as regras. Indicações e recompensas passam pelas validações automáticas do sistema e podem ser analisadas pela equipe.
+
+"""
+            """💬 <b>PRECISA DE AJUDA?</b>
+"""
+"""Abra <b>🎫 Suporte</b>, escolha a categoria e envie todos os detalhes do problema. Quanto mais informações você enviar, mais fácil será para a equipe ajudar.
+""",
+            parse_mode="HTML",
+            reply_markup=menu_principal()
+        )
+
     @bot.message_handler(func=lambda m: m.text == "ℹ️ Informações")
     def informacoes(message):
 
